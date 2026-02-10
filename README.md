@@ -66,21 +66,21 @@ Auto-pay your bills via VTPASS:
 
 ```bash
 # Clone repo
-git clone https://github.com/yourusername/ronpay.git
+git clone https://github.com/Ron-pay/ronpay.git
 cd ronpay
 
 # Install dependencies
-npm install
+pnpm install
 
 # Setup environment
 cp .env.example .env
 # Edit .env with your API keys
 
 # Setup database
-npm run db:setup
+pnpm run db:setup
 
 # Start development
-npm run dev
+pnpm run dev
 ```
 
 ### Environment Variables
@@ -200,19 +200,19 @@ ronpay/
 
 ```bash
 # Run frontend (port 3000)
-npm run dev:frontend
+pnpm run dev:frontend
 
 # Run backend (port 4000)
-npm run dev:backend
+pnpm run dev:backend
 
 # Run worker (background jobs)
-npm run dev:worker
+pnpm run dev:worker
 
 # Run tests
-npm test
+pnpm test
 
 # Run all
-npm run dev
+pnpm run dev
 ```
 
 ## Deployment
@@ -249,12 +249,6 @@ RonPay is a verified ERC-8004 AI Agent:
 - [ ] Multi-language support
 - [ ] 15+ African countries
 - [ ] WhatsApp bot integration
-
-## Hackathon
-
-Built for **Celo "Build Agents for the Real World" Hackathon**
-- **Dates**: Feb 6-15, 2026
-- **Prize**: $5,000 USDT
 
 ### Stats
 - Transactions: 124
