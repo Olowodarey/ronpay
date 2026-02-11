@@ -108,7 +108,7 @@ Create a JSON metadata file with RonPay's details:
    | Field | Value |
    |-------|-------|
    | **Name** | RonPay |
-   | **Description** | AI-powered payment agent for Africa. Send money using natural language on Celo. |
+   | **Description** | AI-powered payment agent for Africa and Beyond. Send money using natural language on Celo. |
    | **Image URL** | `https://ronpay.xyz/images/avatar.png` |
    | **Communication Endpoints** | API: `https://api.ronpay.xyz/v1`<br>WebSocket: `wss://api.ronpay.xyz/chat` |
    | **Capabilities/Tags** | `payments`, `ai`, `africa`, `celo`, `natural-language`, `bills`, `remittance` |

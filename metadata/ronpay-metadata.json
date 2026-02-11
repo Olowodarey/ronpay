@@ -1,0 +1,44 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "RonPay",
+  "description": "AI-powered payment agent for Africa. Send money, pay bills, and schedule payments using natural language on Celo blockchain.",
+  "image": "https://blob.8004scan.app/c828a11643d56ae6d8b606056f1d69b3e3097d84541661c4fe5a5f903c697ef4.jpg",
+  "services": [
+    {
+      "name": "MCP",
+      "endpoint": "https://api.ronpay.xyz/mcp",
+      "mcpTools": [
+        "send_payment",
+        "schedule_payment",
+        "pay_bill",
+        "check_balance",
+        "get_transaction_history"
+      ],
+      "mcpPrompts": [
+        "send_money",
+        "pay_bills",
+        "schedule_recurring",
+        "check_wallet"
+      ],
+      "mcpResources": [
+        "blockchain_balances",
+        "user_accounts",
+        "payment_history"
+      ]
+    },
+    {
+      "name": "OASF",
+      "endpoint": "https://github.com/agntcy/oasf/",
+      "skills": [],
+      "domains": [
+        "finance_and_business/banking",
+        "finance_and_business/finance",
+        "finance_and_business/finance_and_business"
+      ]
+    }
+  ],
+  "registrations": [],
+  "supportedTrusts": [],
+  "active": false,
+  "x402support": true
+}

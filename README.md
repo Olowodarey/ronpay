@@ -50,7 +50,7 @@ Auto-pay your bills via VTPASS:
 ## Tech Stack
 
 - **Frontend**: Next.js, Wagmi, Tailwind
-- **Backend**: Node.js, Express, PostgreSQL, Redis
+- **Backend**: NestJS, PostgreSQL, Redis
 - **AI**: Claude Sonnet 4 (Anthropic)
 - **Blockchain**: Celo + Mento Protocol
 - **Bills**: VTPASS API
@@ -184,14 +184,14 @@ ronpay/
 │   ├── pages/        # Routes
 │   ├── components/   # React components
 │   └── styles/       # Tailwind CSS
-├── backend/          # Node.js API
-│   ├── routes/       # API endpoints
-│   ├── services/     # Business logic
-│   │   ├── ai.js           # Claude AI integration
-│   │   ├── blockchain.js   # Celo transactions
-│   │   ├── scheduler.js    # Recurring payments
-│   │   └── bills.js        # VTPASS integration
-│   └── workers/      # Background jobs
+├── backend/          # NestJS API (ronpay)
+│   ├── src/          # Source files
+│   │   ├── ai/             # Claude AI integration
+│   │   ├── blockchain/     # Celo transactions
+│   │   ├── scheduler/      # Recurring payments
+│   │   └── bills/          # VTPASS integration
+│   ├── test/         # E2E tests
+│   └── nest-cli.json # NestJS configuration
 ├── contracts/        # Smart contracts (if any)
 └── docs/            # Documentation
 ```
@@ -249,12 +249,6 @@ RonPay is a verified ERC-8004 AI Agent:
 - [ ] Multi-language support
 - [ ] 15+ African countries
 - [ ] WhatsApp bot integration
-
-### Stats
-- Transactions: 124
-- Success Rate: 96.8%
-- Users: 23
-- Avg Fee: $0.009
 
 ## Contributing
 

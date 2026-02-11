@@ -1,0 +1,25 @@
+{
+  "name": "ronpay-monorepo",
+  "version": "1.0.0",
+  "description": "RonPay - AI-powered payment agent for Africa on Celo",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
+    "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "test": "pnpm --recursive test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Ron-pay/ronpay.git"
+  },
+  "keywords": ["ai", "payments", "celo", "africa", "blockchain", "agent"],
+  "author": "RonPay Team",
+  "license": "MIT"
+}
