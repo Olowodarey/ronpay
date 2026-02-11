@@ -3,6 +3,10 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { BlockchainModule } from './blockchain/blockchain.module';
+import { AiModule } from './ai/ai.module';
+import { PaymentsModule } from './payments/payments.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -15,6 +19,10 @@ import { AppService } from './app.service';
       autoLoadEntities: true,
       synchronize: process.env.NODE_ENV === 'development',
     }),
+    BlockchainModule,
+    AiModule,
+    PaymentsModule,
+    TransactionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
