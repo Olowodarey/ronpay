@@ -25,7 +25,7 @@ export function Dropdown({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-medium",
+          "flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-xs font-medium",
           className,
         )}
       >
@@ -42,7 +42,7 @@ export function Dropdown({
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute top-full mt-1 right-0 z-20 min-w-[140px] bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
+          <div className="absolute top-full mt-1 right-0 z-20 min-w-[120px] bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
             {options.map((option) => (
               <button
                 key={option.value}

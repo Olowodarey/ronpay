@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Dropdown } from "@/components/ui/dropdown";
 import { MoreVertical } from "lucide-react";
 import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
+import { TokenBalance } from "@/components/chat/TokenBalance";
 
 interface ChatHeaderProps {
   country: string;
@@ -19,9 +20,9 @@ const countries = [
 ];
 
 const tokens = [
-  { value: "usdt", label: "USDT", icon: "💵" },
-  { value: "celo", label: "CELO", icon: "💚" },
-  { value: "cusd", label: "cUSD", icon: "💲" },
+  { value: "usdt", label: "USDT",  },
+  { value: "celo", label: "CELO", },
+  { value: "cusd", label: "cUSD", },
 ];
 
 export function ChatHeader({
@@ -38,19 +39,16 @@ export function ChatHeader({
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-3">
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 px-5 py-3">
       <div className="flex items-center justify-between">
         {/* Profile Section */}
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <Avatar
-              src="/logo1.png"
-              alt="RonPay Assistant"
-              fallback="R"
-              className="h-11 w-11"
-            />
-            <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full" />
-          </div>
+          <Avatar
+            src="/logo1.png"
+            alt="RonPay Assistant"
+            fallback="R"
+            className="h-11 w-11"
+          />
           <div>
             <h1 className="text-base font-semibold text-gray-900">
               RonPay Assistant
@@ -63,14 +61,17 @@ export function ChatHeader({
           </div>
         </div>
 
+        {/* Token Balance */}
+        <TokenBalance token={token} />
+
         {/* More Options */}
-        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+        {/* <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <MoreVertical className="h-5 w-5 text-gray-600" />
-        </button>
+        </button> */}
       </div>
 
       {/* Country and Token Selectors */}
-      <div className="flex items-center justify-between px-5 mt-3">
+      <div className="flex items-center justify-between px-5 mt-3 ">
         <Dropdown
           value={country}
           options={countries}
