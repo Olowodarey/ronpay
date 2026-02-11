@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { SchedulerService } from './scheduler.service';
 import { SchedulerController } from './scheduler.controller';
@@ -10,7 +10,7 @@ import { PaymentsModule } from '../payments/payments.module';
     BullModule.registerQueue({
       name: 'payments',
     }),
-    forwardRef(() => PaymentsModule),
+    PaymentsModule,
   ],
   providers: [SchedulerService, PaymentProcessor],
   controllers: [SchedulerController],
