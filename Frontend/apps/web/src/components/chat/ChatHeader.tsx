@@ -3,6 +3,7 @@
 import { Avatar } from "@/components/ui/avatar";
 import { Dropdown } from "@/components/ui/dropdown";
 import { MoreVertical } from "lucide-react";
+import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
 
 interface ChatHeaderProps {
   country: string;
@@ -29,6 +30,13 @@ export function ChatHeader({
   onCountryChange,
   onTokenChange,
 }: ChatHeaderProps) {
+  const { address, isConnected } = useMiniPayWallet();
+
+  // Format address for display
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-3">
       <div className="flex items-center justify-between">
@@ -48,7 +56,9 @@ export function ChatHeader({
               RonPay Assistant
             </h1>
             <p className="text-xs text-gray-500">
-              Always Helpful • Powered by AI
+              {isConnected && address
+                ? formatAddress(address)
+                : "Always Helpful • Powered by AI"}
             </p>
           </div>
         </div>
