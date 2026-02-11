@@ -13,8 +13,8 @@ interface ChatHeaderProps {
 }
 
 const countries = [
-  { value: "ghana", label: "Ghana", icon: "🇬🇭" },
   { value: "nigeria", label: "Nigeria", icon: "🇳🇬" },
+  { value: "ghana", label: "Ghana", icon: "🇬🇭" },
   { value: "kenya", label: "Kenya", icon: "🇰🇪" },
 ];
 
@@ -44,7 +44,7 @@ export function ChatHeader({
         <div className="flex items-center gap-3">
           <div className="relative">
             <Avatar
-              src="/ronpay-avatar.png"
+              src="/logo1.png"
               alt="RonPay Assistant"
               fallback="R"
               className="h-11 w-11"
@@ -70,7 +70,7 @@ export function ChatHeader({
       </div>
 
       {/* Country and Token Selectors */}
-      <div className="flex items-center gap-2 mt-3">
+      <div className="flex items-center justify-between px-5 mt-3">
         <Dropdown
           value={country}
           options={countries}
