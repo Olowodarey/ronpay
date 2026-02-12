@@ -1,15 +1,15 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-import { Navbar } from '@/components/navbar';
-import { WalletProvider } from "@/components/wallet-provider"
+import { WalletProvider } from "@/components/wallet-provider";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'my-celo-app',
-  description: 'A new Celo blockchain project',
+  title: "RonPay - AI Payment Assistant",
+  description:
+    "AI-powered payment agent for buying airtime, data, and paying bills on Celo",
 };
 
 export default function RootLayout({
@@ -20,15 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* Navbar is included on all pages */}
-        <div className="relative flex min-h-screen flex-col">
-          <WalletProvider>
-            <Navbar />
-            <main className="flex-1">
-              {children}
-            </main>
-          </WalletProvider>
-        </div>
+        <WalletProvider>{children}</WalletProvider>
       </body>
     </html>
   );
