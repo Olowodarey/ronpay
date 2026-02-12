@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, InternalServerErrorException } from '@
 import { CeloService } from '../blockchain/celo.service';
 import { MentoService } from '../blockchain/mento.service';
 import { IdentityService } from '../blockchain/identity.service';
-import { ClaudeService } from '../ai/claude.service';
+import { AiService } from '../ai/ai.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { VtpassService } from '../vtpass/vtpass.service';
 import { NaturalLanguagePaymentDto, ExecutePaymentDto } from './dto/natural-language-payment.dto';
@@ -12,7 +12,7 @@ import { Address } from 'viem';
 export class PaymentsService {
   constructor(
     private celoService: CeloService,
-    private claudeService: ClaudeService,
+    private aiService: AiService,
     private transactionsService: TransactionsService,
     private mentoService: MentoService,
     private identityService: IdentityService,
@@ -24,8 +24,8 @@ export class PaymentsService {
    * MiniPay-compatible: Returns unsigned transaction
    */
   async parsePaymentIntent(dto: NaturalLanguagePaymentDto) {
-    // 1. Parse intent with Claude AI
-    const intent = await this.claudeService.parsePaymentIntent(dto.message);
+    // 1. Parse intent with AI
+    const intent = await this.aiService.parsePaymentIntent(dto.message);
 
     console.log('Parsed intent:', intent);
 

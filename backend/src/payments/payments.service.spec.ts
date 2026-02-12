@@ -3,7 +3,7 @@ import { PaymentsService } from './payments.service';
 import { CeloService } from '../blockchain/celo.service';
 import { MentoService } from '../blockchain/mento.service';
 import { IdentityService } from '../blockchain/identity.service';
-import { ClaudeService } from '../ai/claude.service';
+import { AiService } from '../ai/ai.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { VtpassService } from '../vtpass/vtpass.service';
 import { BadRequestException } from '@nestjs/common';
@@ -13,7 +13,7 @@ describe('PaymentsService Integration', () => {
   let mentoService: MentoService;
   let identityService: IdentityService;
   let celoService: CeloService;
-  let claudeService: ClaudeService;
+  let aiService: AiService;
   let vtpassService: VtpassService;
 
   beforeEach(async () => {
@@ -41,7 +41,7 @@ describe('PaymentsService Integration', () => {
           },
         },
         {
-          provide: ClaudeService,
+          provide: AiService,
           useValue: {
             parsePaymentIntent: jest.fn(),
           },
@@ -66,7 +66,7 @@ describe('PaymentsService Integration', () => {
     mentoService = module.get<MentoService>(MentoService);
     identityService = module.get<IdentityService>(IdentityService);
     celoService = module.get<CeloService>(CeloService);
-    claudeService = module.get<ClaudeService>(ClaudeService);
+    aiService = module.get<AiService>(AiService);
     vtpassService = module.get<VtpassService>(VtpassService);
     process.env.RONPAY_TREASURY_ADDRESS = '0xTreasury';
   });
@@ -77,7 +77,7 @@ describe('PaymentsService Integration', () => {
 
   describe('parsePaymentIntent', () => {
     it('should resolve phone number and build transaction', async () => {
-        jest.spyOn(claudeService, 'parsePaymentIntent').mockResolvedValue({
+      jest.spyOn(aiService, 'parsePaymentIntent').mockResolvedValue({
             action: 'send_payment',
             recipient: '+2348012345678',
             amount: 10,
@@ -94,7 +94,7 @@ describe('PaymentsService Integration', () => {
 
     it('should calculate VTPASS cost using Mento rate', async () => {
         // Mock 1000 NGN -> 0.66 cUSD (rate 1500)
-        jest.spyOn(claudeService, 'parsePaymentIntent').mockResolvedValue({
+      jest.spyOn(aiService, 'parsePaymentIntent').mockResolvedValue({
             action: 'buy_airtime',
             recipient: '08012345678',
             amount: 1000,
@@ -115,30 +115,21 @@ describe('PaymentsService Integration', () => {
       it('should trigger VTPASS purchase on successful treasury deposit', async () => {
           process.env.RONPAY_TREASURY_ADDRESS = '0xTreasury';
           const validTx = {
-              txHash: '0x' + '1'.repeat(64),
-              fromAddress: '0xUser',
-              toAddress: '0xTreasury', // Matches env
-              amount: '0.66',
-              currency: 'cUSD',
-              metadata: {
-                  provider: 'VTPASS',
-                  recipient: '08012345678',
-                  originalAmountNgn: 1000,
-                  variation_code: null,
-              },
+            txHash: '0x' + '1'.repeat(64),
+            fromAddress: '0xUser',
+            toAddress: '0xTreasury', // Matches env
+            amount: '0.66',
+            currency: 'cUSD',
+            metadata: {
+              provider: 'VTPASS',
+              recipient: '08012345678',
+              originalAmountNgn: 1000,
+              variation_code: null,
+            },
           };
 
           await service.recordTransaction(validTx as any);
-          
-          // Wait for async callback (mocked waitForTransaction resolves immediately)
-          // We need a small delay or to await the promise if we could capture it.
-          // Since recordTransaction does not await the callback, checking strict execution is tricky in unit test without flushing promises.
-          // However, we mock waitForTransaction.then(...).
-          
-          // Actually, recordTransaction calls waitForTransaction but does NOT await it.
-          // So the "triggers VTPASS" logic happens inside the .then() block which runs on next tick.
-          
-          // For this test, we can just check if TransactionsService.create was called correctly.
+
           expect(jest.spyOn(service['transactionsService'], 'create')).toHaveBeenCalled();
       });
   });
