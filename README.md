@@ -22,16 +22,26 @@ No wallet addresses. No crypto jargon. Just simple payments.
 ## Features
 
 ### 💬 Natural Language Payments
-Talk naturally - RonPay understands what you mean:
-- "Send $100 to Jane in Kenya"
-- "Pay my DSTV every month"
-- "Buy ₦1000 airtime for +234..."
+Talk naturally in **4 languages** - RonPay understands what you mean:
+- 🇬🇧 English: "Send $100 to Jane in Kenya"
+- 🇪🇸 Spanish: "Envía $100 a mamá en Colombia"
+- 🇧🇷 Portuguese: "Enviar R$500 para João no Brasil"
+- 🇫🇷 French: "Envoyer 10,000 FCFA à papa au Sénégal"
+
+### 💰 Real-Time Exchange Rates & Savings
+See exactly how much you save:
+- **Real-time Mento Protocol rates** (no hidden markups)
+- Compare fees vs Western Union & Wise
+- **Save up to 95%** on remittance fees
+- Transparent pricing - what you see is what you get
 
 ### 🔄 Auto-Pilot Payments
 Set it once, forget forever:
-- Monthly remittances to family
+- Monthly remittances to family (5th, 15th, any day)
 - Recurring bill payments
 - Daily/weekly schedules
+- Balance checks before execution
+- SMS reminders 24h before payment
 
 ### 🌍 Multi-Country Support
 Send money across borders instantly:
@@ -40,6 +50,7 @@ Send money across borders instantly:
 - 🇧🇷 Brazil (Real)
 - 🇨🇴 Colombia (Peso)
 - 🇬🇭 Ghana (Cedi)
+- 🇵🇭 Philippines (Peso) *coming soon*
 
 ### 📺 Nigerian Bill Payments
 Auto-pay your bills via VTPASS:
@@ -47,13 +58,22 @@ Auto-pay your bills via VTPASS:
 - MTN, Airtel, Glo, 9mobile airtime & data
 - Electricity bills
 
+### 📱 Smart Notifications
+Never miss a payment update:
+- SMS confirmations
+- WhatsApp notifications
+- Transaction receipts
+- Savings summaries
+
 ## Tech Stack
 
 - **Frontend**: Next.js, Wagmi, Tailwind
 - **Backend**: NestJS, PostgreSQL, Redis
-- **AI**: Claude Sonnet 4 (Anthropic)
-- **Blockchain**: Celo + Mento Protocol
-- **Bills**: VTPASS API
+- **AI**: Claude Sonnet 4 (Anthropic) - Multi-language NLP (EN, ES, PT, FR)
+- **Blockchain**: Celo + Mento Protocol (Real-time exchange rates)
+- **Bill Payments**: VTPASS API (Nigeria)
+- **Notifications**: Twilio (SMS + WhatsApp)
+- **Fee Comparison**: Wise API + Western Union integration
 
 ## Quick Start
 
@@ -241,14 +261,30 @@ RonPay is a verified ERC-8004 AI Agent:
 
 ## Roadmap
 
-- [x] MVP - Natural language payments
+### ✅ Completed (MVP)
+- [x] Natural language payments (English)
+- [x] Celo blockchain integration
 - [x] Scheduled recurring payments
-- [x] Nigerian bill payments
-- [x] Multi-country support
+- [x] Nigerian bill payments (VTPASS)
+- [x] Multi-stablecoin support (cUSD, cKES, cEUR, cREAL)
+- [x] Transaction history tracking
+
+### 🚧 In Progress (Production Ready - 2-3 weeks)
+- [/] Multi-language support (English, Spanish, Portuguese, French)
+- [/] Real-time Mento Protocol exchange rates
+- [/] Fee comparison vs Western Union & Wise
+- [/] SMS/WhatsApp notifications
+- [/] Enhanced recurring scheduler
+- [/] ODIS phone number resolution
+- [/] Production deployment
+
+### 🔮 Future (Q1-Q2 2026)
 - [ ] MiniPay marketplace launch (March 2026)
-- [ ] Multi-language support
 - [ ] 15+ African countries
-- [ ] WhatsApp bot integration
+- [ ] WhatsApp bot interface
+- [ ] Voice commands integration
+- [ ] Telegram bot
+- [ ] Agent reputation system (ERC-8004)
 
 ## Contributing
 
