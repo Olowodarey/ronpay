@@ -118,16 +118,17 @@ export class PaymentsService {
       transaction: transactionData,
       meta: {
         serviceType: intent.action, // buy_airtime, pay_bill
-        provider: intent.provider,
+        provider: intent.biller || intent.provider || 'VTPASS',
         recipient: intent.recipient, // phone or meter number
         originalAmountNgn: amountInNgn,
         exchangeRate: exchangeRate,
+        variation_code: intent.package,
       },
       parsedCommand: {
         recipient: 'RonPay Treasury', // Displayed to user
         amount: parseFloat(amountInCusd),
         currency: 'cUSD',
-        memo: `Payment for ${intent.provider} ${intent.action}`,
+        memo: `Payment for ${intent.biller || 'Service'} ${intent.package || ''}`,
       },
     };
   }
