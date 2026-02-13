@@ -11,7 +11,7 @@ export class NaturalLanguagePaymentDto {
 
   @IsOptional()
   @IsString()
-  language?: 'en' | 'es' | 'pt' | 'fr'; // Optional: auto-detect if not provided
+  language?: 'en' | 'es' | 'pt' | 'fr';
 }
 
 export class ExecutePaymentDto {
