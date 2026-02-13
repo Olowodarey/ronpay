@@ -16,6 +16,6 @@ import { AiService } from './ai.service';
       inject: [ClaudeService, GeminiService],
     },
   ],
-  exports: [AiService],
+  exports: [AiService, ClaudeService, GeminiService],
 })
 export class AiModule {}
