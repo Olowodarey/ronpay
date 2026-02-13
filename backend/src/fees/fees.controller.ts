@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, ParseFloatPipe } from '@nestjs/common';
 import { FeesService } from './fees.service';
 import { FeeComparisonDto } from './dto/fee-comparison.dto';
 
@@ -15,12 +15,15 @@ export class FeesController {
    * @example GET /fees/compare?from=USD&to=NGN&amount=100
    */
   @Get('compare')
-  async compareFees(@Query() dto: FeeComparisonDto) {
-    // Convert amount from string to number
+  async compareFees(
+      @Query('from') from: string,
+      @Query('to') to: string,
+      @Query('amount', ParseFloatPipe) amount: number,
+  ) {
     const comparisonDto: FeeComparisonDto = {
-      from: dto.from,
-      to: dto.to,
-      amount: parseFloat(dto.amount as any),
+        from,
+        to,
+        amount,
     };
 
     return this.feesService.compareFees(comparisonDto);
