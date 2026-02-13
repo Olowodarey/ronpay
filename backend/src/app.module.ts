@@ -21,11 +21,10 @@ import { HealthModule } from './health/health.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    // Rate limiting - global protection against abuse
     ThrottlerModule.forRoot([
       {
-        ttl: 60000
-        limit: 30,  // Default: 30 requests per minute
+        ttl: 60000,
+        limit: 30,
       },
     ]),
     TypeOrmModule.forRootAsync({
@@ -35,7 +34,6 @@ import { HealthModule } from './health/health.module';
         url: configService.get('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: configService.get('NODE_ENV') !== 'production',
-        // Connection pooling for production
         extra: {
           max: 20,
           min: 5,

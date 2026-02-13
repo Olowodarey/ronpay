@@ -21,13 +21,11 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule, {
-    logger: false, // Disable default logger, use Winston
+    logger: false,
   });
 
-  // Use Winston logger
   app.useLogger(logger);
 
-  // Enable CORS for frontend (production + development)
   const allowedOrigins: (string | RegExp)[] = [
     'http://localhost:3000',
     'https://ronpay.xyz',
@@ -37,7 +35,6 @@ async function bootstrap() {
     'https://ronpay.vercel.app',
   ];
 
-  // Add ngrok domains for development
   if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push(
       /\.ngrok-free\.dev$/,
@@ -52,12 +49,11 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
-  // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Strip properties that don't have decorators
-      transform: true, // Transform to DTO instances
-      forbidNonWhitelisted: true, // Throw error if extra properties
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
       transformOptions: {
         enableImplicitConversion: true,
       },
