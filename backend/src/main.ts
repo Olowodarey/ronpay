@@ -1,32 +1,89 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { AppModule } from './app.module';
+import { logger } from './common/logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Initialize Sentry for error tracking (production only)
+  if (process.env.NODE_ENV === 'production' && process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV,
+      integrations: [
+        nodeProfilingIntegration(),
+      ],
+      tracesSampleRate: 0.1, // 10% of transactions for performance monitoring
+      profilesSampleRate: 0.1,
+    });
+    logger.info('Sentry error tracking initialized');
+  }
 
-  // Enable CORS for frontend
-  app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'https://ronpay.xyz',
-      'https://ronpay.vercel.app',
-      /\.ngrok-free\.dev$/, // Allow all ngrok domains
-      /\.ngrok\.io$/, // Allow ngrok.io domains
-    ],
-    credentials: true,
+  const app = await NestFactory.create(AppModule, {
+    logger: false, // Disable default logger, use Winston
   });
 
-  // Enable validation
+  // Use Winston logger
+  app.useLogger(logger);
+
+  // Enable CORS for frontend (production + development)
+  const allowedOrigins: (string | RegExp)[] = [
+    'http://localhost:3000',
+    'https://ronpay.xyz',
+    'https://www.ronpay.xyz',
+    'https://ronpay.app',
+    'https://www.ronpay.app',
+    'https://ronpay.vercel.app',
+  ];
+
+  // Add ngrok domains for development
+  if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push(
+      /\.ngrok-free\.dev$/,
+      /\.ngrok\.io$/,
+    );
+  }
+
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  });
+
+  // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
-      transform: true,
+      whitelist: true, // Strip properties that don't have decorators
+      transform: true, // Transform to DTO instances
+      forbidNonWhitelisted: true, // Throw error if extra properties
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     }),
   );
 
+  // Security headers
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+  });
+
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`RonPay backend running on port ${port}`);
+
+  logger.info(`RonPay backend running on port ${port}`, {
+    environment: process.env.NODE_ENV || 'development',
+    version: process.env.npm_package_version || '1.0.0',
+  });
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  logger.error('Failed to start application', { error: error.stack });
+  process.exit(1);
+});
+
+

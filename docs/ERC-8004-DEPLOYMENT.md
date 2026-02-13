@@ -50,7 +50,7 @@ Create a JSON metadata file with RonPay's details:
 ```json
 {
   "name": "RonPay",
-  "description": "AI-powered payment agent for Africa. Send money, pay bills, and schedule payments using natural language on Celo blockchain.",
+  "description": "AI-powered payment agent for Africa and Beyond. Send money, pay bills, and schedule payments using natural language on Celo blockchain.",
   "image": "https://ronpay.xyz/images/ronpay-agent-avatar.png",
   "version": "1.0.0",
   "capabilities": [
