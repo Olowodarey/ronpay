@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+jest.mock('@google/genai', () => ({
+  GoogleGenAI: jest.fn().mockImplementation(() => ({
+    getGenerativeModel: jest.fn(),
+  })),
+}));
 import { PaymentsService } from './payments.service';
 import { CeloService } from '../blockchain/celo.service';
 import { MentoService } from '../blockchain/mento.service';
@@ -6,6 +11,8 @@ import { IdentityService } from '../blockchain/identity.service';
 import { AiService } from '../ai/ai.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { VtpassService } from '../vtpass/vtpass.service';
+import { ClaudeService } from '../ai/claude.service';
+import { GeminiService } from '../ai/gemini.service';
 import { BadRequestException } from '@nestjs/common';
 
 describe('PaymentsService Integration', () => {
@@ -57,6 +64,19 @@ describe('PaymentsService Integration', () => {
           provide: VtpassService,
           useValue: {
             purchaseProduct: jest.fn().mockResolvedValue({ code: '000' }),
+            validateAirtimeFlow: jest.fn().mockReturnValue({ phone: '08012345678', serviceID: 'airtime-mtn', amount: 1000 }),
+          },
+        },
+        {
+          provide: ClaudeService,
+          useValue: {
+            parsePaymentIntent: jest.fn(),
+          },
+        },
+        {
+          provide: GeminiService,
+          useValue: {
+            parsePaymentIntent: jest.fn(),
           },
         },
       ],
@@ -105,7 +125,7 @@ describe('PaymentsService Integration', () => {
 
         const result = await service.parsePaymentIntent({ message: 'Buy 1000 Naira MTN airtime', senderAddress: '0xUser' });
 
-        expect(mentoService.getSwapQuote).toHaveBeenCalledWith('cNGN', 'cUSD', '1000');
+      expect(mentoService.getSwapQuote).toHaveBeenCalledWith('NGNm', 'USDm', '1000');
         expect((result as any).parsedCommand.amount).toBe(0.66); // From mocked Mento quote
         expect((result as any).meta.provider).toBe('MTN');
     });
