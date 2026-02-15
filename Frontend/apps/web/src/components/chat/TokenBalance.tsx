@@ -10,7 +10,7 @@ interface TokenBalanceProps {
 
 const tokenAddresses = {
   usdt: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e" as `0x${string}`, // USDT on Celo
-  cusd: "0x765DE816845861e75A25fCA122bb6898B8B1282a" as `0x${string}`, // cUSD on Celo
+  cusd: "0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b" as `0x${string}`, // cUSD on Celo
   celo: undefined, // Native CELO
 };
 

@@ -26,8 +26,9 @@ export class MentoService implements OnModuleInit {
     });
 
     // Initialize Ethers Provider for Mento SDK
-    const rpcUrl = this.configService.get('CELO_RPC_URL', 'https://forno.celo.org');
-    this.provider = new providers.JsonRpcProvider(rpcUrl);
+    this.provider = new providers.JsonRpcProvider(
+      "https://forno.celo-sepolia.celo-testnet.org"
+    );
 
     try {
       this.mento = await Mento.create(this.provider);

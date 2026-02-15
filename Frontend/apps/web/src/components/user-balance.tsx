@@ -3,7 +3,7 @@
 import { useAccount, useBalance } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const cUSD_ADDRESS = "0x765de816845861e75a25fca122bb6898b8b1282a";
+const cUSD_ADDRESS = "0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b";
 const USDC_ADDRESS = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C";
 const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e";
 
