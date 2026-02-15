@@ -13,11 +13,11 @@ import { ERC20_ABI } from '../abis/erc20';
 // Celo token addresses on Mainnet
 export const CELO_TOKENS = {
   // === Mento Protocol Stablecoins ===
-  USDm: '0x765DE816845861e75A25fCA122bb6898B8B1282a', // Mento Dollar
-  EURm: '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73', // Mento Euro
-  BRLm: '0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787', // Mento Brazilian Real
-  KESm: '0x456a3D042C0DbD3db53D5489e98dFb038553B0d0', // Mento Kenyan Shilling
-  NGNm: '0xC6a531d7CdEbaD7FDFAfb6d96D9C8724Ceb9C0A7', // Mento Nigerian Naira
+  USDm: '0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b', // Mento Dollar
+  EURm: '0xA99dC247d6b7B2E3ab48a1fEE101b83cD6aCd82a', // Mento Euro
+  BRLm: '0x2294298942fdc79417DE9E0D740A4957E0e7783a', // Mento Brazilian Real
+  KESm: '0xC7e4635651E3e3Af82b61d3E23c159438daE3BbF', // Mento Kenyan Shilling
+  NGNm: '0x3d5ae86F34E2a82771496D140daFAEf3789dF888', // Mento Nigerian Naira
 
   // Additional Mento Stablecoins
   // COPm: '0x...',  // Mento Colombian Peso
