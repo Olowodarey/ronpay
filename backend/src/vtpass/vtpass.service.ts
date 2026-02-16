@@ -149,14 +149,18 @@ export class VtpassService {
     // Generate unique request ID if not provided (VTPASS compliant format)
     const request_id = data.request_id || this.generateRequestId();
 
-    const payload = {
+    const payload: any = {
       request_id,
       serviceID: data.serviceID,
       billersCode: data.billersCode,
-      variation_code: data.variation_code,
       amount: data.amount,
       phone: data.phone,
     };
+
+    // Only include variation_code if it's not an airtime service
+    if (data.variation_code && !data.serviceID.toLowerCase().includes('airtime') && !Object.values(VTPASS_AIRTIME_SERVICES).includes(data.serviceID)) {
+      payload.variation_code = data.variation_code;
+    }
 
     // 1. Record preliminary transaction (Pending)
     const transaction = await this.transactionsService.create({
