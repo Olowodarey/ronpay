@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { McpModule } from '@rekog/mcp-nest';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { BlockchainModule } from './blockchain/blockchain.module';
@@ -15,6 +16,8 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { FeesModule } from './fees/fees.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
+import { A2aModule } from './a2a/a2a.module';
+import { McpToolsProvider } from './mcp/mcp-tools.provider';
 
 @Module({
   imports: [
@@ -53,6 +56,11 @@ import { HealthModule } from './health/health.module';
       }),
       inject: [ConfigService],
     }),
+    // MCP Server — exposes tools for AI agent integration
+    McpModule.forRoot({
+      name: 'ronpay-mcp',
+      version: '1.0.0',
+    }),
     BlockchainModule,
     AiModule,
     PaymentsModule,
@@ -62,10 +70,14 @@ import { HealthModule } from './health/health.module';
     FeesModule,
     NotificationsModule,
     HealthModule,
+    // A2A Protocol — agent discovery at /.well-known/agent.json
+    A2aModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    // MCP tools — delegates to existing services
+    McpToolsProvider,
     // Global rate limiting guard
     {
       provide: APP_GUARD,
