@@ -14,6 +14,7 @@ import { ClaudeService } from '../ai/claude.service';
 import { GeminiService } from '../ai/gemini.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { VtpassService } from '../vtpass/vtpass.service';
+import { ConversationService } from '../transactions/conversation.service';
 import {
   NaturalLanguagePaymentDto,
   ExecutePaymentDto,
@@ -36,6 +37,7 @@ export class PaymentsService {
     private claudeService: ClaudeService,
     private geminiService: GeminiService,
     private routeOptimizer: RouteOptimizerService,
+    private conversationService: ConversationService,
   ) {}
 
   // ────────────────────────────────────────────────────────────
@@ -81,25 +83,52 @@ export class PaymentsService {
       aiService = this.geminiService;
     }
 
-    // 2. Parse intent with selected AI
-    const intent = await aiService.parsePaymentIntent(dto.message, dto.language);
+    // 2. Get or create conversation session for context
+    const sessionId = await this.conversationService.getOrCreateSession(dto.senderAddress);
+
+    // 3. Store user message in conversation
+    await this.conversationService.addMessage(
+      dto.senderAddress,
+      sessionId,
+      'user',
+      dto.message,
+    );
+
+    // 4. Build contextual message with conversation history
+    const history = await this.conversationService.getSessionHistory(sessionId);
+    const context = this.conversationService.formatContextForAI(history.slice(0, -1)); // exclude current
+    const contextualMessage = context
+      ? `${dto.message}\n${context}`
+      : dto.message;
+
+    // 5. Parse intent with selected AI (with context)
+    const intent = await aiService.parsePaymentIntent(contextualMessage, dto.language);
     this.logger.log(`Parsed intent: ${JSON.stringify(intent)}`);
 
-    // 3. Validate confidence
+    // 6. Validate confidence
     if (!intent || (intent.confidence && intent.confidence < 0.5)) {
       throw new BadRequestException(
         'Unable to understand payment request with sufficient confidence. Please be more specific.',
       );
     }
 
+    // 7. Store assistant response in conversation
+    await this.conversationService.addMessage(
+      dto.senderAddress,
+      sessionId,
+      'assistant',
+      `Parsed: ${intent.action} ${intent.amount || ''} ${intent.currency || ''}`,
+      intent,
+    );
+
     // VTPASS Flows (Airtime, Data, Bills)
     if (['buy_airtime', 'buy_data', 'pay_bill'].includes(intent.action)) {
-      return this.handleVtpassIntent(intent);
+      return { sessionId, ...await this.handleVtpassIntent(intent) };
     }
 
     // Standard Crypto Transfer Flow
     if (intent.action === 'send_payment') {
-      return this.buildTransferResponse(intent);
+      return { sessionId, ...await this.buildTransferResponse(intent) };
     }
 
     throw new BadRequestException(`Action "${intent.action}" not supported yet.`);
