@@ -5,6 +5,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { MentoService } from '../blockchain/mento.service';
 import { CeloService } from '../blockchain/celo.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FeesService } from '../fees/fees.service';
 import { ScheduleMetadata, DEFAULT_RETRY_CONFIG } from './interfaces/schedule.interface';
 import { SupportedLanguage } from '../ai/language-detection';
 
@@ -17,6 +18,7 @@ export class PaymentProcessor {
     private readonly mentoService: MentoService,
     private readonly celoService: CeloService,
     private readonly notificationsService: NotificationsService,
+    private readonly feesService: FeesService,
   ) { }
 
   @Process('recurring-payment')
@@ -24,11 +26,11 @@ export class PaymentProcessor {
     this.logger.log(`Processing recurring payment: ${job.id}`);
     const data = job.data;
     const metadata: ScheduleMetadata = data.metadata || this.getDefaultMetadata(job.id?.toString() || '');
+    const phone = data.phone;
 
     try {
       // 1. Check if schedule is paused
       if (metadata.isPaused) {
-        // Check if pause period has expired
         if (metadata.pausedUntil && new Date() > new Date(metadata.pausedUntil)) {
           metadata.isPaused = false;
           metadata.pausedUntil = undefined;
@@ -45,7 +47,7 @@ export class PaymentProcessor {
 
       if (!hasBalance) {
         this.logger.warn(`Insufficient balance for schedule ${job.id}`);
-        await this.handleInsufficientBalance(job, data, metadata);
+        await this.handleInsufficientBalance(job, data, metadata, phone);
         return { status: 'insufficient_balance', retryCount: metadata.retryCount };
       }
 
@@ -56,7 +58,7 @@ export class PaymentProcessor {
       const txHash = `0x${Math.random().toString(16).slice(2)}`;
 
       // 4. Send success notification
-      await this.sendSuccessNotification(data, txHash, metadata);
+      await this.sendSuccessNotification(data, txHash, metadata, phone);
 
       // 5. Reset retry count on success
       metadata.retryCount = 0;
@@ -70,10 +72,9 @@ export class PaymentProcessor {
         txHash,
         scheduleId: job.id,
       };
-
     } catch (error) {
       this.logger.error(`Failed to execute recurring payment ${job.id}: ${error.message}`, error.stack);
-      await this.handleFailure(job, data, metadata, error.message);
+      await this.handleFailure(job, data, metadata, error.message, phone);
       return {
         status: 'failed',
         error: error.message,
@@ -87,6 +88,7 @@ export class PaymentProcessor {
     this.logger.log(`Processing recurring bill: ${job.id}`);
     const data = job.data;
     const metadata: ScheduleMetadata = data.metadata || this.getDefaultMetadata(job.id?.toString() || '');
+    const phone = data.phone;
 
     try {
       // 1. Check if paused
@@ -116,7 +118,7 @@ export class PaymentProcessor {
 
       if (!hasBalance) {
         this.logger.warn(`Insufficient balance for bill ${job.id}`);
-        await this.handleInsufficientBalance(job, data, metadata);
+        await this.handleInsufficientBalance(job, data, metadata, phone);
         return { status: 'insufficient_balance' };
       }
 
@@ -124,8 +126,7 @@ export class PaymentProcessor {
       this.logger.log(`[MOCK] Executing bill payment: ${data.serviceID} for ${data.billersCode}`);
 
       // 5. Send notification
-      const language: SupportedLanguage = metadata.language as SupportedLanguage || 'en';
-      const phone = '+1234567890'; // TODO: Get from user profile
+      const language: SupportedLanguage = (metadata.language as SupportedLanguage) || 'en';
 
       await this.notificationsService.sendNotification({
         toPhone: phone,
@@ -138,10 +139,9 @@ export class PaymentProcessor {
       await job.update({ ...data, metadata });
 
       return { status: 'success', scheduleId: job.id };
-
     } catch (error) {
       this.logger.error(`Failed to execute recurring bill ${job.id}: ${error.message}`);
-      await this.handleFailure(job, data, metadata, error.message);
+      await this.handleFailure(job, data, metadata, error.message, phone);
       return { status: 'failed', error: error.message };
     }
   }
@@ -159,31 +159,32 @@ export class PaymentProcessor {
       return balance >= amount;
     } catch (error) {
       this.logger.error(`Balance check failed: ${error.message}`);
-      return false; // Assume insufficient on error (conservative)
+      return false;
     }
   }
 
   /**
    * Handle insufficient balance with retry logic
    */
-  private async handleInsufficientBalance(job: Job, data: any, metadata: ScheduleMetadata) {
+  private async handleInsufficientBalance(
+    job: Job,
+    data: any,
+    metadata: ScheduleMetadata,
+    phone: string,
+  ) {
     metadata.retryCount = (metadata.retryCount || 0) + 1;
     metadata.lastAttempt = new Date();
     metadata.failureReason = 'insufficient_balance';
 
     if (metadata.retryCount <= metadata.maxRetries) {
-      // Schedule retry with backoff
       const delay = this.getRetryDelay(metadata.retryCount);
       metadata.nextAttempt = new Date(Date.now() + delay);
 
       this.logger.log(`Scheduling retry ${metadata.retryCount}/${metadata.maxRetries} for ${job.id} in ${delay}ms`);
 
-      // Update job metadata
       await job.update({ ...data, metadata });
 
-      // Send retry notification
-      const language: SupportedLanguage = metadata.language as SupportedLanguage || 'en';
-      const phone = '+1234567890'; // TODO: Get from user profile
+      const language: SupportedLanguage = (metadata.language as SupportedLanguage) || 'en';
 
       await this.notificationsService.sendPaymentFailed(
         phone,
@@ -191,18 +192,14 @@ export class PaymentProcessor {
         data.currency || data.token,
         language,
       );
-
     } else {
-      // Max retries exceeded
       this.logger.warn(`Max retries exceeded for ${job.id}, marking as failed`);
 
       metadata.isPaused = true;
       metadata.failureReason = 'max_retries_exceeded';
       await job.update({ ...data, metadata });
 
-      // Send final failure notification
-      const language: SupportedLanguage = metadata.language as SupportedLanguage || 'en';
-      const phone = '+1234567890'; // TODO: Get from user profile
+      const language: SupportedLanguage = (metadata.language as SupportedLanguage) || 'en';
 
       const messages = {
         en: `❌ Recurring payment failed after ${metadata.maxRetries} attempts. Please check your balance and resume schedule.`,
@@ -222,7 +219,13 @@ export class PaymentProcessor {
   /**
    * Handle general payment failure
    */
-  private async handleFailure(job: Job, data: any, metadata: ScheduleMetadata, reason: string) {
+  private async handleFailure(
+    job: Job,
+    data: any,
+    metadata: ScheduleMetadata,
+    reason: string,
+    phone: string,
+  ) {
     metadata.retryCount = (metadata.retryCount || 0) + 1;
     metadata.lastAttempt = new Date();
     metadata.failureReason = reason;
@@ -237,15 +240,39 @@ export class PaymentProcessor {
       metadata.isPaused = true;
       await job.update({ ...data, metadata });
       this.logger.error(`Schedule ${job.id} paused after max retries: ${reason}`);
+
+      // Notify user of permanent failure
+      const language: SupportedLanguage = (metadata.language as SupportedLanguage) || 'en';
+      await this.notificationsService.sendNotification({
+        toPhone: phone,
+        message: `❌ Your scheduled payment has been paused due to repeated failures: ${reason}`,
+        channel: 'sms',
+      });
     }
   }
 
   /**
    * Send success notification with savings info
    */
-  private async sendSuccessNotification(data: any, txHash: string, metadata: ScheduleMetadata) {
+  private async sendSuccessNotification(
+    data: any,
+    txHash: string,
+    metadata: ScheduleMetadata,
+    phone: string,
+  ) {
     try {
-      const phone = '+1234567890'; // TODO: Get from user profile
+      // Calculate real savings using FeesService
+      let savings = 2.5; // fallback
+      try {
+        const comparison = await this.feesService.compareFees({
+          from: 'USD',
+          to: data.currency === 'NGNm' ? 'NGN' : 'KES',
+          amount: data.amount,
+        });
+        savings = comparison.savings?.vsWise || savings;
+      } catch (feeErr) {
+        this.logger.debug(`Fee comparison failed, using fallback: ${feeErr.message}`);
+      }
 
       await this.notificationsService.sendPaymentConfirmation({
         toPhone: phone,
@@ -253,7 +280,7 @@ export class PaymentProcessor {
         currency: data.currency || data.token,
         txHash,
         language: metadata.language as SupportedLanguage,
-        savings: 2.5, // TODO: Calculate actual savings from fees service
+        savings,
       });
     } catch (error) {
       this.logger.error(`Failed to send success notification: ${error.message}`);

@@ -35,6 +35,10 @@ export class CreateScheduleDto {
   @IsNotEmpty()
   walletAddress: string;
 
+  @IsString()
+  @IsNotEmpty()
+  phone: string; // Phone number for notifications
+
   @IsOptional()
   @IsString()
   language?: SupportedLanguage;
@@ -72,6 +76,10 @@ export class CreateBillScheduleDto {
   @IsString()
   @IsNotEmpty()
   walletAddress: string;
+
+  @IsString()
+  @IsNotEmpty()
+  phone: string; // Phone number for notifications
 
   @IsOptional()
   @IsString()
