@@ -226,3 +226,25 @@ export class CeloService {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   }
 }
+
+
+// i want you to go through my backend to understand the payment flow
+// i want to complete it send payment implementation but i do not not what i am missing
+
+//   ** Description **
+
+//   Build an AI agent that understands natural language remittance requests and executes cross - border transfers using Celo stablecoins.Users simply say "Send $50 to my mom in the Philippines" or "Transfer 100 euros to my brother in Nigeria every month" and the agent handles everything - finding the cheapest route, converting currencies via Mento, and executing the transfer.The agent should support multiple language inputs(English, Spanish, Portuguese, French) to serve Celo's global user base. It should also provide fee comparisons showing how much users save compared to traditional remittance services like Western Union or Wise. Think of it as bankrbot but specifically optimized for remittances on Celo. OpenClaw can be used as the core agent framework to handle natural language understanding, conversation memory, and transaction orchestration.
+
+//     ** Features **
+
+//     - Natural language intent parsing with multi - language support(English, Spanish, Portuguese, French)
+//       - Multi - corridor transfers with route optimization across Mento pools(USD→PHP, EUR→NGN, GBP→KES)
+//         - Fee comparison vs traditional providers(Western Union, Wise) showing user savings
+//           - Recurring transfer scheduling with SMS / WhatsApp notifications to recipients
+//             - Transaction history, receipts, and spending limits for security
+
+//               ** Integrations **
+
+//               OpenClaw for agent framework, Mento Protocol for multi - currency swaps, Celo Stablecoins(USDm, EURm, BRLm, COPm, XOFm), Twilio / WhatsApp API for notifications.
+
+// the question 

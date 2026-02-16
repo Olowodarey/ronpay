@@ -477,7 +477,7 @@ export class PaymentsService {
         biller: dto.provider,
       },
     );
-    // 4. Verify blockchain transaction (Allow skip in non-production for testing)
+    
     const isDev = process.env.NODE_ENV !== 'production';
     const skipVerification = isDev && (dto as any).skipVerification === true;
 
