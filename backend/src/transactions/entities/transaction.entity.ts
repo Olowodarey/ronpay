@@ -17,8 +17,8 @@ export class Transaction {
   @Column('decimal', { precision: 20, scale: 8 })
   amount: number;
 
-  @Column({ default: 'cUSD' })
-  currency: string; // cUSD, cKES, cREAL, CELO
+  @Column({ default: 'USDm' })
+  currency: string; // USDm, KESm, EURm, BRLm, NGNm, CELO
 
   @Column({ unique: true })
   txHash: string;

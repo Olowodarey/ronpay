@@ -6,4 +6,6 @@ export interface PaymentIntent {
   provider?: string;
   memo?: string;
   confidence?: number;
+  biller?: string;
+  package?: string;
 }

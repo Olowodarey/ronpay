@@ -2,8 +2,9 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
-import { CeloService } from '../blockchain/celo.service';
+import { CeloService, CELO_TOKENS } from '../blockchain/celo.service';
 import { MentoService } from '../blockchain/mento.service';
 import { IdentityService } from '../blockchain/identity.service';
 import { AiService } from '../ai/ai.service';
@@ -21,6 +22,8 @@ import { PurchaseAirtimeDto } from '../vtpass/dto/vtpass-airtime.dto';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private celoService: CeloService,
     private aiService: AiService,
@@ -32,14 +35,43 @@ export class PaymentsService {
     private geminiService: GeminiService,
   ) {}
 
+  // ────────────────────────────────────────────────────────────
+  // Shared: Recipient Resolution
+  // ────────────────────────────────────────────────────────────
+
+  /**
+   * Resolve a recipient string to a valid Celo address.
+   * If it's already a valid 0x address, return it directly.
+   * Otherwise, try ODIS phone number resolution.
+   */
+  private async resolveRecipient(rawRecipient: string): Promise<Address> {
+    if (this.celoService.isValidAddress(rawRecipient)) {
+      return rawRecipient as Address;
+    }
+
+    // Try phone number / alias resolution via ODIS
+    const resolved = await this.identityService.resolvePhoneNumber(rawRecipient);
+    if (resolved) {
+      this.logger.log(`Resolved ${rawRecipient} → ${resolved}`);
+      return resolved as Address;
+    }
+
+    throw new BadRequestException(
+      `Unable to resolve recipient: ${rawRecipient}. Please use a valid Celo address or registered phone number.`,
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Parse Intent (AI-powered)
+  // ────────────────────────────────────────────────────────────
+
   /**
    * Parse natural language and return transaction data for client-side signing
    * MiniPay-compatible: Returns unsigned transaction
    */
   async parsePaymentIntent(dto: NaturalLanguagePaymentDto) {
     // 1. Select AI Service
-    let aiService = this.aiService; // Default injected service
-
+    let aiService = this.aiService;
     if (dto.aiProvider === 'claude') {
       aiService = this.claudeService;
     } else if (dto.aiProvider === 'gemini') {
@@ -47,17 +79,10 @@ export class PaymentsService {
     }
 
     // 2. Parse intent with selected AI
-    const intent = await aiService.parsePaymentIntent(
-      dto.message,
-      dto.language,
-    );
+    const intent = await aiService.parsePaymentIntent(dto.message, dto.language);
+    this.logger.log(`Parsed intent: ${JSON.stringify(intent)}`);
 
-    console.log(
-      '[PaymentsService] Parsed intent:',
-      JSON.stringify(intent, null, 2),
-    );
-
-    // 2. Validate intent & specific flows
+    // 3. Validate confidence
     if (!intent || (intent.confidence && intent.confidence < 0.5)) {
       throw new BadRequestException(
         'Unable to understand payment request with sufficient confidence. Please be more specific.',
@@ -71,244 +96,161 @@ export class PaymentsService {
 
     // Standard Crypto Transfer Flow
     if (intent.action === 'send_payment') {
-      if (!intent.recipient) {
-        throw new BadRequestException(
-          'Could not determine payment recipient from message',
-        );
-      }
-      if (!intent.amount || intent.amount <= 0) {
-        throw new BadRequestException(
-          'Could not determine valid payment amount from message',
-        );
-      }
-
-      // 1. Resolve Recipient (Phone -> Address)
-      let recipientAddress = intent.recipient;
-      if (
-        recipientAddress &&
-        !this.celoService.isValidAddress(recipientAddress)
-      ) {
-        // Assume it's a phone number or alias
-        const resolved =
-          await this.identityService.resolvePhoneNumber(recipientAddress);
-        if (resolved) {
-          console.log(`Resolved ${recipientAddress} to ${resolved}`);
-          recipientAddress = resolved;
-        } else {
-          throw new BadRequestException(
-            `Unable to resolve recipient: ${recipientAddress}. Please use a valid Celo address or registered phone number.`,
-          );
-        }
-      }
-
-      if (!recipientAddress) {
-        throw new BadRequestException('Could not determine payment recipient');
-      }
-
-      if (!this.celoService.isValidAddress(recipientAddress)) {
-        throw new BadRequestException(
-          `Invalid recipient address: ${recipientAddress}`,
-        );
-      }
-
-      const currency = intent.currency || 'cUSD';
-
-      // Check if authorized token (Simple validation)
-      // const supportedTokens = this.celoService.getSupportedTokens();
-
-      const transactionData = await this.celoService.buildPaymentTransaction(
-        recipientAddress as Address,
-        intent.amount.toString(),
-        currency as any,
-      );
-
-      return {
-        intent,
-        transaction: transactionData,
-        parsedCommand: {
-          recipient: recipientAddress,
-          originalRecipient: intent.recipient,
-          amount: intent.amount,
-          currency,
-          memo: intent.memo,
-        },
-      };
+      return this.buildTransferResponse(intent);
     }
 
-    throw new BadRequestException(
-      `Action "${intent.action}" not supported yet.`,
-    );
+    throw new BadRequestException(`Action "${intent.action}" not supported yet.`);
   }
 
+  // ────────────────────────────────────────────────────────────
+  // Parse Intent (Direct — bypasses AI)
+  // ────────────────────────────────────────────────────────────
+
   /**
-   * Parse payment intent directly (bypasses AI - for development/testing)
-   * Useful for saving Claude tokens during development
+   * Parse payment intent directly (bypasses AI — for development/testing)
+   * Useful for saving AI tokens during development
    */
   async parsePaymentIntentDirect(intent: PaymentIntent, senderAddress: string) {
-    console.log(
-      '[PaymentsService] Direct intent parsing (bypassing AI):',
-      JSON.stringify(intent, null, 2),
-    );
+    this.logger.log(`Direct intent parsing (bypassing AI): ${JSON.stringify(intent)}`);
 
-    // Validate intent
     if (!intent || (intent.confidence && intent.confidence < 0.5)) {
       throw new BadRequestException(
         'Invalid payment intent. Please provide all required fields.',
       );
     }
 
-    // VTPASS Flows (Airtime, Data, Bills)
+    // VTPASS Flows
     if (['buy_airtime', 'buy_data', 'pay_bill'].includes(intent.action)) {
       return this.handleVtpassIntent(intent);
     }
 
     // Standard Crypto Transfer Flow
     if (intent.action === 'send_payment') {
-      if (!intent.recipient) {
-        throw new BadRequestException('recipient field is required');
-      }
-      if (!intent.amount || intent.amount <= 0) {
-        throw new BadRequestException('amount must be a valid positive number');
-      }
-
-      // 1. Resolve Recipient (Phone -> Address)
-      let recipientAddress = intent.recipient;
-      if (
-        recipientAddress &&
-        !this.celoService.isValidAddress(recipientAddress)
-      ) {
-        // Assume it's a phone number or alias
-        const resolved =
-          await this.identityService.resolvePhoneNumber(recipientAddress);
-        if (resolved) {
-          console.log(`Resolved ${recipientAddress} to ${resolved}`);
-          recipientAddress = resolved;
-        } else {
-          throw new BadRequestException(
-            `Unable to resolve recipient: ${recipientAddress}. Please use a valid Celo address or registered phone number.`,
-          );
-        }
-      }
-
-      if (!recipientAddress) {
-        throw new BadRequestException('Could not determine payment recipient');
-      }
-
-      if (!this.celoService.isValidAddress(recipientAddress)) {
-        throw new BadRequestException(
-          `Invalid recipient address: ${recipientAddress}`,
-        );
-      }
-
-      const currency = intent.currency || 'USDm';
-
-      const transactionData = await this.celoService.buildPaymentTransaction(
-        recipientAddress as Address,
-        intent.amount.toString(),
-        currency as any,
-      );
-
-      return {
-        intent,
-        transaction: transactionData,
-        parsedCommand: {
-          recipient: recipientAddress,
-          originalRecipient: intent.recipient,
-          amount: intent.amount,
-          currency,
-          memo: intent.memo,
-        },
-      };
+      return this.buildTransferResponse(intent);
     }
 
-    throw new BadRequestException(
-      `Action "${intent.action}" not supported yet.`,
-    );
+    throw new BadRequestException(`Action "${intent.action}" not supported yet.`);
   }
+
+  // ────────────────────────────────────────────────────────────
+  // Shared: Build transfer response
+  // ────────────────────────────────────────────────────────────
+
+  /**
+   * Validate intent fields, resolve recipient, and build the unsigned transaction.
+   * Shared by both parsePaymentIntent() and parsePaymentIntentDirect().
+   */
+  private async buildTransferResponse(intent: PaymentIntent) {
+    if (!intent.recipient) {
+      throw new BadRequestException('Could not determine payment recipient from message');
+    }
+    if (!intent.amount || intent.amount <= 0) {
+      throw new BadRequestException('Could not determine valid payment amount from message');
+    }
+
+    const recipientAddress = await this.resolveRecipient(intent.recipient);
+    const currency = intent.currency || 'USDm';
+
+    const transactionData = await this.celoService.buildPaymentTransaction(
+      recipientAddress,
+      intent.amount.toString(),
+      currency as any,
+    );
+
+    return {
+      intent,
+      transaction: transactionData,
+      parsedCommand: {
+        recipient: recipientAddress,
+        originalRecipient: intent.recipient,
+        amount: intent.amount,
+        currency,
+        memo: intent.memo,
+      },
+    };
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // VTPASS Flows (Airtime, Bills)
+  // ────────────────────────────────────────────────────────────
 
   /**
    * Handle VTPASS intents (Airtime, Bills)
-   * Flow: User pays cUSD to Treasury -> Backend detects tx -> Backend triggers VTPASS
+   * Flow: User pays USDm to Treasury → Backend detects tx → Backend triggers VTPASS
    */
-  private async handleVtpassIntent(intent: any) {
-    // 1. Determine amount in cUSD using Mento Service
-    // We want to know: "How much cUSD is 100 NGN?" -> Swap cNGN -> cUSD
-    const amountInNgn = intent.amount || ""; // Default 100 NGN
+  private async handleVtpassIntent(intent: PaymentIntent) {
+    const amountInNgn = intent.amount;
 
     if (!amountInNgn) {
       throw new BadRequestException('amount field is required');
     }
 
     let exchangeRate = 1500; // Fallback
-    let amountInCusd = '0.07';
+    let amountInUsdm = '0.07';
 
     try {
-      // Get quote: 1 cUSD -> NGN (to get the rate) OR amountInNgn cNGN -> cUSD?
-      // Let's ask: "What is value of X cNGN in cUSD?"
       const quote = await this.mentoService.getSwapQuote(
         'NGNm',
         'USDm',
         amountInNgn.toString(),
       );
 
-      console.log('Mento quote:', JSON.stringify(quote, null, 2));
-      amountInCusd = parseFloat(quote.amountOut).toFixed(2);
-      exchangeRate = 1 / quote.price; // Derived rate
+      this.logger.log(`Mento quote: ${JSON.stringify(quote)}`);
+      amountInUsdm = parseFloat(quote.amountOut).toFixed(2);
+      exchangeRate = 1 / quote.price;
     } catch (error) {
-      console.error(
-        'Failed to get Mento rate for VTPASS, using fallback',
-        error,
-      );
-      // Fallback calculation
-      amountInCusd = (amountInNgn / 1500).toFixed(2);
+      this.logger.error('Failed to get Mento rate for VTPASS, using fallback', error.stack);
+      amountInUsdm = (amountInNgn / 1500).toFixed(2);
     }
 
-    // 2. Get Treasury Address
+    // Get Treasury Address
     const treasuryAddress = process.env.RONPAY_TREASURY_ADDRESS;
     if (!treasuryAddress) {
       throw new InternalServerErrorException('Treasury address not configured');
     }
 
-    // 3. Build Transaction: User -> Treasury
+    // Build Transaction: User → Treasury
     const transactionData = await this.celoService.buildPaymentTransaction(
       treasuryAddress as Address,
-      amountInCusd,
+      amountInUsdm,
       'USDm',
     );
 
-    console.log('Transaction data:', JSON.stringify(transactionData, null, 2));
+    this.logger.log(`VTPASS tx built: ${amountInUsdm} USDm → treasury`);
 
     return {
       intent,
       transaction: transactionData,
       meta: {
-        serviceType: intent.action, // buy_airtime, pay_bill
+        serviceType: intent.action,
         provider: intent.biller || intent.provider || 'VTPASS',
-        recipient: intent.recipient, // phone or meter number
+        recipient: intent.recipient,
         originalAmountNgn: amountInNgn,
-        exchangeRate: exchangeRate,
+        exchangeRate,
         variation_code: intent.package,
       },
       parsedCommand: {
         recipient: 'RonPay Treasury',
-        amount: parseFloat(amountInCusd),
-        currency: 'cUSD',
+        amount: parseFloat(amountInUsdm),
+        currency: 'USDm',
         memo: `Payment for ${intent.biller || 'Service'} ${intent.package || ''}`,
       },
     };
   }
+
+  // ────────────────────────────────────────────────────────────
+  // Record Transaction (post-signing)
+  // ────────────────────────────────────────────────────────────
 
   /**
    * Record a transaction that was executed client-side (by MiniPay)
    * For VTPASS: If we see a successful payment to Treasury with VTPASS metadata, trigger the service.
    */
   async recordTransaction(dto: ExecutePaymentDto) {
-    // Validate transaction hash format
     if (!/^0x[a-fA-F0-9]{64}$/.test(dto.txHash)) {
       throw new BadRequestException('Invalid transaction hash format');
     }
 
-    // Save transaction to database
     const transaction = await this.transactionsService.create({
       fromAddress: dto.fromAddress.toLowerCase(),
       toAddress: dto.toAddress.toLowerCase(),
@@ -334,7 +276,6 @@ export class PaymentsService {
         if (receipt.status === 'success') {
           await this.transactionsService.updateStatus(dto.txHash, 'success');
 
-          // Check if transaction.toAddress === TREASURY_ADDRESS
           const treasuryAddress = process.env.RONPAY_TREASURY_ADDRESS;
           const isToTreasury =
             dto.toAddress.toLowerCase() === treasuryAddress?.toLowerCase();
@@ -344,10 +285,7 @@ export class PaymentsService {
             dto.metadata &&
             dto.metadata.provider === 'VTPASS'
           ) {
-            console.log(
-              'Verifying token receipt for treasury:',
-              dto.txHash,
-            );
+            this.logger.log(`Verifying token receipt for treasury: ${dto.txHash}`);
 
             const isVerified = await this.celoService.verifyERC20Transfer(
               dto.txHash as `0x${string}`,
@@ -357,42 +295,26 @@ export class PaymentsService {
             );
 
             if (!isVerified) {
-              console.error(
-                'Token transfer verification failed for transaction:',
-                dto.txHash,
-              );
-              await this.transactionsService.updateStatus(
-                dto.txHash,
-                'failed_verification',
-              );
+              this.logger.error(`Token transfer verification failed: ${dto.txHash}`);
+              await this.transactionsService.updateStatus(dto.txHash, 'failed_verification');
               return;
             }
 
-            console.log(
-              'Token receipt verified. Triggering VTPASS purchase:',
-              dto.txHash,
-            );
+            this.logger.log(`Token receipt verified. Triggering VTPASS: ${dto.txHash}`);
             try {
               await this.vtpassService.purchaseProduct({
-                serviceID: dto.serviceId || 'airtime', // fallback
-                billersCode: dto.metadata.recipient, // phone or meter
+                serviceID: dto.serviceId || 'airtime',
+                billersCode: dto.metadata.recipient,
                 variation_code: dto.metadata.variation_code,
-                amount: dto.metadata.originalAmountNgn || 100, // Use NGN amount
-                phone: dto.metadata.recipient, // For notifications?
+                amount: dto.metadata.originalAmountNgn || 100,
+                phone: dto.metadata.recipient,
                 walletAddress: dto.fromAddress,
-                request_id: dto.txHash, // Use txHash as idempotency key? Or part of it.
+                request_id: dto.txHash,
               });
-              await this.transactionsService.updateStatus(
-                dto.txHash,
-                'success_delivered',
-              ); // Mark as fully complete
+              await this.transactionsService.updateStatus(dto.txHash, 'success_delivered');
             } catch (err) {
-              console.error('VTPASS Execution Failed after payment:', err);
-              // We should probably log this critical failure (User paid but didn't get service) -> Manual Refund Needed state
-              await this.transactionsService.updateStatus(
-                dto.txHash,
-                'failed_service_error',
-              );
+              this.logger.error(`VTPASS execution failed after payment: ${err.message}`, err.stack);
+              await this.transactionsService.updateStatus(dto.txHash, 'failed_service_error');
             }
           }
         } else {
@@ -400,7 +322,7 @@ export class PaymentsService {
         }
       })
       .catch((error) => {
-        console.error('Transaction confirmation error:', error);
+        this.logger.error(`Transaction confirmation error: ${error.message}`, error.stack);
         this.transactionsService.updateStatus(dto.txHash, 'failed');
       });
 
@@ -411,9 +333,10 @@ export class PaymentsService {
     };
   }
 
-  /**
-   * Get balance for a wallet address
-   */
+  // ────────────────────────────────────────────────────────────
+  // Balance & Token Queries
+  // ────────────────────────────────────────────────────────────
+
   async getBalance(address: string) {
     if (!this.celoService.isValidAddress(address)) {
       throw new BadRequestException(`Invalid address: ${address}`);
@@ -428,20 +351,16 @@ export class PaymentsService {
     };
   }
 
-  /**
-   * Get supported tokens
-   */
   getSupportedTokens() {
     return {
       tokens: this.celoService.getSupportedTokens(),
-      mainnet: {
-        cUSD: '0x765DE816845861e75A25fCA122bb6898B8B1282a',
-        cEUR: '0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73',
-        cREAL: '0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787',
-        cKES: '0x456a3D042C0DbD3db53D5489e98dFb038553B0d0',
-      },
+      addresses: CELO_TOKENS,
     };
   }
+
+  // ────────────────────────────────────────────────────────────
+  // Airtime Purchase (dedicated endpoint)
+  // ────────────────────────────────────────────────────────────
 
   /**
    * Complete VTPASS airtime purchase flow
@@ -454,30 +373,28 @@ export class PaymentsService {
    * 4. Track transaction in local database
    */
   async purchaseAirtime(dto: {
-    txHash: string; // Celo blockchain transaction hash
-    phoneNumber: string; // Recipient phone number
-    amount: number; // Amount in NGN
-    provider: string; // MTN, Airtel, Glo, 9mobile
-    walletAddress: string; // Sender's wallet
+    txHash: string;
+    phoneNumber: string;
+    amount: number;
+    provider: string;
+    walletAddress: string;
     memo?: string;
-    skipVerification?: boolean; // For manual testing in development
+    skipVerification?: boolean;
   }) {
-    console.log('[PaymentsService] Processing airtime purchase:', {
+    this.logger.log(`Processing airtime purchase: ${JSON.stringify({
       txHash: dto.txHash,
       phoneNumber: dto.phoneNumber,
       amount: dto.amount,
       provider: dto.provider,
-    });
+    })}`);
 
     // 1. Validate parameters
-    const { phone, serviceID, amount } = this.vtpassService.validateAirtimeFlow(
-      {
-        recipient: dto.phoneNumber,
-        amount: dto.amount,
-        biller: dto.provider,
-      },
-    );
-    
+    const { phone, serviceID, amount } = this.vtpassService.validateAirtimeFlow({
+      recipient: dto.phoneNumber,
+      amount: dto.amount,
+      biller: dto.provider,
+    });
+
     const isDev = process.env.NODE_ENV !== 'production';
     const skipVerification = isDev && (dto as any).skipVerification === true;
 
@@ -487,25 +404,37 @@ export class PaymentsService {
         throw new InternalServerErrorException('Treasury address not configured');
       }
 
-      console.log('Verifying token receipt for treasury:', dto.txHash);
+      // Dynamically calculate expected USDm amount from Mento
+      let expectedUsdm = '0.07'; // fallback
+      try {
+        const quote = await this.mentoService.getSwapQuote(
+          'NGNm',
+          'USDm',
+          dto.amount.toString(),
+        );
+        expectedUsdm = parseFloat(quote.amountOut).toFixed(2);
+        this.logger.log(`Dynamic verification amount: ${expectedUsdm} USDm for ${dto.amount} NGN`);
+      } catch (error) {
+        this.logger.warn(`Failed to get Mento quote for verification, using fallback: ${error.message}`);
+        expectedUsdm = (dto.amount / 1500).toFixed(2);
+      }
+
+      this.logger.log(`Verifying token receipt for treasury: ${dto.txHash}`);
       const isVerified = await this.celoService.verifyERC20Transfer(
         dto.txHash as `0x${string}`,
         treasuryAddress as Address,
-        '0.07', // Fallback or re-calculate
+        expectedUsdm,
         'USDm',
       );
 
       if (!isVerified) {
-        console.error(
-          'Token transfer verification failed for transaction:',
-          dto.txHash,
-        );
+        this.logger.error(`Token transfer verification failed: ${dto.txHash}`);
         throw new BadRequestException(
           'Transaction verification failed. Please ensure you have paid the correct amount to the treasury.',
         );
       }
     } else {
-      console.log('Skipping verification for direct test call');
+      this.logger.log('Skipping verification for direct test call');
     }
 
     // 2. Call VTPASS to purchase airtime
@@ -518,7 +447,6 @@ export class PaymentsService {
         walletAddress: dto.walletAddress,
       });
 
-      // 3. Format response
       const transactionStatus =
         response.content?.transactions?.status || 'pending';
 
@@ -539,10 +467,10 @@ export class PaymentsService {
           transactionStatus === 'delivered'
             ? 'Airtime delivered successfully'
             : 'Airtime will be delivered in 2-3 minutes',
-        fullResponse: response, // Return full response for debugging
+        fullResponse: response,
       };
     } catch (error) {
-      console.error('[PaymentsService] Airtime purchase failed:', error);
+      this.logger.error(`Airtime purchase failed: ${error.message}`, error.stack);
       throw new InternalServerErrorException(
         `Failed to process airtime purchase: ${error.message}`,
       );
