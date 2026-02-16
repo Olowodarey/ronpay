@@ -65,6 +65,7 @@ export class CeloService {
 
     if (token === 'CELO') {
       // Native CELO transfer
+      console.log('Native CELO transfer');
       return {
         to,
         value: amountInWei.toString(),
@@ -72,6 +73,7 @@ export class CeloService {
         feeCurrency: feeCurrency || CELO_TOKENS.USDm, // Pay gas in USDm by default
       };
     } else {
+      console.log('ERC20 token transfer');
       // ERC20 token transfer
       const tokenAddress = CELO_TOKENS[token] as Address;
 
@@ -151,6 +153,45 @@ export class CeloService {
       hash: txHash,
       timeout: 60_000, // 60 seconds
     });
+  }
+
+  /**
+   * Verify an ERC20 transfer within a transaction
+   */
+  async verifyERC20Transfer(
+    txHash: `0x${string}`,
+    expectedTo: Address,
+    expectedAmount: string,
+    token: keyof typeof CELO_TOKENS = 'USDm',
+  ): Promise<boolean> {
+    const receipt = await this.getTransactionReceipt(txHash);
+    if (receipt.status !== 'success') return false;
+
+    const tokenAddress = CELO_TOKENS[token] as Address;
+    const expectedAmountInWei = parseUnits(expectedAmount, 18);
+
+    // Filter logs for Transfer events from our token
+    const transferLogs = receipt.logs.filter(
+      (log) =>
+        log.address.toLowerCase() === tokenAddress.toLowerCase() &&
+        log.topics[0] ===
+        '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', // Transfer(address,address,uint256)
+    );
+
+    for (const log of transferLogs) {
+      // Transfer event: topic[1] is 'from', topic[2] is 'to'
+      const to = `0x${log.topics[2]?.substring(26)}`.toLowerCase();
+      const value = BigInt(log.data);
+
+      if (
+        to === expectedTo.toLowerCase() &&
+        value >= expectedAmountInWei // Allow for slight rounding differences or excess
+      ) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
