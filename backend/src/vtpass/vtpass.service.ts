@@ -11,10 +11,10 @@ import { TransactionsService } from '../transactions/transactions.service';
 
 // VTPASS Service ID to Provider Mapping
 export const VTPASS_AIRTIME_SERVICES: Record<string, string> = {
-  MTN: 'airtime-mtn',
-  Airtel: 'airtime-airtel',
-  Glo: 'airtime-glo',
-  '9mobile': 'airtime-9mobile',
+  MTN: 'mtn',
+  Airtel: 'airtel',
+  Glo: 'glo',
+  '9mobile': 'etisalat',
 } as const;
 
 @Injectable()
