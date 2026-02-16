@@ -8,6 +8,7 @@ import { AGENT_CONFIG } from '../agent/agent-config';
 import { CeloService, CELO_TOKENS } from '../blockchain/celo.service';
 import { MentoService } from '../blockchain/mento.service';
 import { IdentityService } from '../blockchain/identity.service';
+import { RouteOptimizerService } from '../blockchain/route-optimizer.service';
 import { AiService } from '../ai/ai.service';
 import { ClaudeService } from '../ai/claude.service';
 import { GeminiService } from '../ai/gemini.service';
@@ -34,6 +35,7 @@ export class PaymentsService {
     private vtpassService: VtpassService,
     private claudeService: ClaudeService,
     private geminiService: GeminiService,
+    private routeOptimizer: RouteOptimizerService,
   ) {}
 
   // ────────────────────────────────────────────────────────────
@@ -210,20 +212,40 @@ export class PaymentsService {
 
     let exchangeRate = 1500; // Fallback
     let amountInUsdm = '0.07';
+    let routeUsed = 'fallback';
 
     try {
-      const quote = await this.mentoService.getSwapQuote(
+      // Try optimized multi-corridor routing first
+      const bestRoute = await this.routeOptimizer.findBestRoute(
         'NGNm',
         'USDm',
         amountInNgn.toString(),
       );
 
-      this.logger.log(`Mento quote: ${JSON.stringify(quote)}`);
-      amountInUsdm = parseFloat(quote.amountOut).toFixed(2);
-      exchangeRate = 1 / quote.price;
-    } catch (error) {
-      this.logger.error('Failed to get Mento rate for VTPASS, using fallback', error.stack);
-      amountInUsdm = (amountInNgn / 1500).toFixed(2);
+      amountInUsdm = parseFloat(bestRoute.bestRoute.amountOut).toFixed(2);
+      exchangeRate = 1 / bestRoute.bestRoute.price;
+      routeUsed = bestRoute.bestRoute.source;
+
+      this.logger.log(
+        `Route optimizer: ${bestRoute.bestRoute.path.join(' → ')} = ${amountInUsdm} USDm (${routeUsed})`,
+      );
+    } catch (routeError) {
+      this.logger.warn(`Route optimizer failed, falling back to direct Mento: ${routeError.message}`);
+
+      try {
+        const quote = await this.mentoService.getSwapQuote(
+          'NGNm',
+          'USDm',
+          amountInNgn.toString(),
+        );
+        amountInUsdm = parseFloat(quote.amountOut).toFixed(2);
+        exchangeRate = 1 / quote.price;
+        routeUsed = 'mento-direct-fallback';
+      } catch (mentoError) {
+        this.logger.error('All routing failed, using static fallback', mentoError.stack);
+        amountInUsdm = (amountInNgn / 1500).toFixed(2);
+        routeUsed = 'static-fallback';
+      }
     }
 
     // Get Treasury Address
@@ -244,6 +266,10 @@ export class PaymentsService {
     return {
       intent,
       transaction: transactionData,
+      routing: {
+        routeUsed,
+        exchangeRate,
+      },
       meta: {
         serviceType: intent.action,
         provider: intent.biller || intent.provider || 'VTPASS',
