@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import { AGENT_CONFIG } from '../agent/agent-config';
 import { CeloService, CELO_TOKENS } from '../blockchain/celo.service';
 import { MentoService } from '../blockchain/mento.service';
 import { IdentityService } from '../blockchain/identity.service';
@@ -148,6 +149,13 @@ export class PaymentsService {
       throw new BadRequestException('Could not determine valid payment amount from message');
     }
 
+    // Spending limit enforcement
+    if (intent.amount > AGENT_CONFIG.maxTransactionAmount) {
+      throw new BadRequestException(
+        `Transaction amount $${intent.amount} exceeds the maximum limit of $${AGENT_CONFIG.maxTransactionAmount}. Please reduce the amount.`,
+      );
+    }
+
     const recipientAddress = await this.resolveRecipient(intent.recipient);
     const currency = intent.currency || 'USDm';
 
@@ -157,9 +165,16 @@ export class PaymentsService {
       currency as any,
     );
 
+    // Confirmation flag for amounts above threshold
+    const requiresConfirmation = intent.amount > AGENT_CONFIG.confirmationThreshold;
+
     return {
       intent,
       transaction: transactionData,
+      requiresConfirmation,
+      ...(requiresConfirmation && {
+        confirmationMessage: `This transaction of $${intent.amount} exceeds $${AGENT_CONFIG.confirmationThreshold}. Please confirm to proceed.`,
+      }),
       parsedCommand: {
         recipient: recipientAddress,
         originalRecipient: intent.recipient,
@@ -183,6 +198,14 @@ export class PaymentsService {
 
     if (!amountInNgn) {
       throw new BadRequestException('amount field is required');
+    }
+
+    // Spending limit enforcement (approximate USD conversion)
+    const estimatedUsd = amountInNgn / 1500; // rough NGN→USD for limit check
+    if (estimatedUsd > AGENT_CONFIG.maxTransactionAmount) {
+      throw new BadRequestException(
+        `Estimated transaction value ~$${estimatedUsd.toFixed(0)} exceeds the maximum limit of $${AGENT_CONFIG.maxTransactionAmount}.`,
+      );
     }
 
     let exchangeRate = 1500; // Fallback
