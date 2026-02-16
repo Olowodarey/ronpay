@@ -233,7 +233,11 @@ export class PaymentsService {
   private async handleVtpassIntent(intent: any) {
     // 1. Determine amount in cUSD using Mento Service
     // We want to know: "How much cUSD is 100 NGN?" -> Swap cNGN -> cUSD
-    const amountInNgn = intent.amount || 100; // Default 100 NGN
+    const amountInNgn = intent.amount || ""; // Default 100 NGN
+
+    if (!amountInNgn) {
+      throw new BadRequestException('amount field is required');
+    }
 
     let exchangeRate = 1500; // Fallback
     let amountInCusd = '0.07';
@@ -271,6 +275,8 @@ export class PaymentsService {
       amountInCusd,
       'USDm',
     );
+
+    console.log('Transaction data:', JSON.stringify(transactionData, null, 2));
 
     return {
       intent,
@@ -339,7 +345,31 @@ export class PaymentsService {
             dto.metadata.provider === 'VTPASS'
           ) {
             console.log(
-              'Triggering VTPASS purchase for confirmed transaction:',
+              'Verifying token receipt for treasury:',
+              dto.txHash,
+            );
+
+            const isVerified = await this.celoService.verifyERC20Transfer(
+              dto.txHash as `0x${string}`,
+              treasuryAddress as Address,
+              dto.amount.toString(),
+              dto.currency as any,
+            );
+
+            if (!isVerified) {
+              console.error(
+                'Token transfer verification failed for transaction:',
+                dto.txHash,
+              );
+              await this.transactionsService.updateStatus(
+                dto.txHash,
+                'failed_verification',
+              );
+              return;
+            }
+
+            console.log(
+              'Token receipt verified. Triggering VTPASS purchase:',
               dto.txHash,
             );
             try {
