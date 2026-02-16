@@ -460,6 +460,7 @@ export class PaymentsService {
     provider: string; // MTN, Airtel, Glo, 9mobile
     walletAddress: string; // Sender's wallet
     memo?: string;
+    skipVerification?: boolean; // For manual testing in development
   }) {
     console.log('[PaymentsService] Processing airtime purchase:', {
       txHash: dto.txHash,
@@ -476,32 +477,35 @@ export class PaymentsService {
         biller: dto.provider,
       },
     );
-    // 4. Verify blockchain transaction
-    const treasuryAddress = process.env.RONPAY_TREASURY_ADDRESS;
-    if (!treasuryAddress) {
-      throw new InternalServerErrorException('Treasury address not configured');
-    }
+    // 4. Verify blockchain transaction (Allow skip in non-production for testing)
+    const isDev = process.env.NODE_ENV !== 'production';
+    const skipVerification = isDev && (dto as any).skipVerification === true;
 
-    console.log('Verifying token receipt for treasury:', dto.txHash);
-    const isVerified = await this.celoService.verifyERC20Transfer(
-      dto.txHash as `0x${string}`,
-      treasuryAddress as Address,
-      // We need to know the amount in USDm that was expected.
-      // In this direct endpoint, we might have to re-calculate or assume it matches.
-      // For now, let's re-calculate to be safe, or if available in metadata?
-      // Since this is a direct endpoint, let's re-calculate.
-      '0.07', // Fallback or re-calculate
-      'USDm',
-    );
+    if (!skipVerification) {
+      const treasuryAddress = process.env.RONPAY_TREASURY_ADDRESS;
+      if (!treasuryAddress) {
+        throw new InternalServerErrorException('Treasury address not configured');
+      }
 
-    if (!isVerified) {
-      console.error(
-        'Token transfer verification failed for transaction:',
-        dto.txHash,
+      console.log('Verifying token receipt for treasury:', dto.txHash);
+      const isVerified = await this.celoService.verifyERC20Transfer(
+        dto.txHash as `0x${string}`,
+        treasuryAddress as Address,
+        '0.07', // Fallback or re-calculate
+        'USDm',
       );
-      throw new BadRequestException(
-        'Transaction verification failed. Please ensure you have paid the correct amount to the treasury.',
-      );
+
+      if (!isVerified) {
+        console.error(
+          'Token transfer verification failed for transaction:',
+          dto.txHash,
+        );
+        throw new BadRequestException(
+          'Transaction verification failed. Please ensure you have paid the correct amount to the treasury.',
+        );
+      }
+    } else {
+      console.log('Skipping verification for direct test call');
     }
 
     // 2. Call VTPASS to purchase airtime

@@ -35,6 +35,9 @@ export class PurchaseAirtimeDto {
   @IsOptional()
   @IsString()
   memo?: string; // Optional memo
+
+  @IsOptional()
+  skipVerification?: boolean; // For manual testing in development
 }
 
 /**
