@@ -4,11 +4,13 @@ import {
   Get,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { ReceiptsService } from '../transactions/receipts.service';
 import { VtpassService } from '../vtpass/vtpass.service';
 import {
   NaturalLanguagePaymentDto,
@@ -22,6 +24,7 @@ export class PaymentsController {
   constructor(
     private paymentsService: PaymentsService,
     private transactionsService: TransactionsService,
+    private receiptsService: ReceiptsService,
     private vtpassService: VtpassService,
   ) {}
 
@@ -128,6 +131,23 @@ export class PaymentsController {
   @Get('transaction/:txHash')
   async getTransaction(@Param('txHash') txHash: string) {
     return this.transactionsService.findByTxHash(txHash);
+  }
+
+  /**
+   * Get formatted transaction receipt
+   * GET /payments/receipt/:txHash?lang=en
+   *
+   * Returns multi-language formatted receipt with:
+   * - Transaction details
+   * - Savings vs traditional remittance
+   * - Celo explorer link
+   */
+  @Get('receipt/:txHash')
+  async getReceipt(
+    @Param('txHash') txHash: string,
+    @Query('lang') lang?: 'en' | 'es' | 'pt' | 'fr',
+  ) {
+    return this.receiptsService.generateReceipt(txHash, lang);
   }
 
   /**
