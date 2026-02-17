@@ -15,6 +15,7 @@ const navItems = [
   { id: "rewards", label: "Rewards", icon: Gift },
   { id: "profile", label: "Profile", icon: User },
   { id: "test", href: "/test", label: "Test", icon: User },
+  { id: "test-send", href: "/test-send", label: "Test Send", icon: User },
 ];
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
