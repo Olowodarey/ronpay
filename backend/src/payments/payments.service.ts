@@ -158,7 +158,7 @@ export class PaymentsService {
 
     // Standard Crypto Transfer Flow
     if (intent.action === 'send_payment') {
-      return this.buildTransferResponse(intent);
+      return this.buildTransferResponse(intent, senderAddress);
     }
 
     throw new BadRequestException(`Action "${intent.action}" not supported yet.`);
@@ -177,7 +177,7 @@ export class PaymentsService {
    * - The recipient gets sourceCurrency tokens (they can swap later)
    * - Exchange rate info is included in the response
    */
-  private async buildTransferResponse(intent: PaymentIntent) {
+  private async buildTransferResponse(intent: PaymentIntent, senderAddress?: string) {
     if (!intent.recipient) {
       throw new BadRequestException('Could not determine payment recipient from message');
     }
@@ -199,6 +199,7 @@ export class PaymentsService {
     let sendAmount = intent.amount.toString();
     let exchangeRate: any = null;
     let transactionData: any = null;
+    let actionRequired: string | null = null;
 
     // Cross-currency: get Mento quote and build tx in source token
     if (sourceCurrency !== destinationCurrency) {
@@ -224,7 +225,45 @@ export class PaymentsService {
           `Cross-currency (Swap): Need ${sendAmount} ${sourceCurrency} to get ${intent.amount} ${destinationCurrency}`,
         );
 
-        // 2. Build the Swap transaction data
+        // 2. Check allowance for the Broker
+        if (senderAddress) {
+          const brokerAddress = this.celoService.getBrokerAddress();
+          const allowance = await this.celoService.getAllowance(
+            sourceCurrency as keyof typeof CELO_TOKENS,
+            senderAddress as Address,
+            brokerAddress,
+          );
+
+          if (parseFloat(allowance) < parseFloat(sendAmount)) {
+            this.logger.log(`Insufficient allowance for Broker. Required: ${sendAmount}, Current: ${allowance}`);
+
+            // Build approval transaction instead of swap
+            transactionData = await this.celoService.buildApproveTransaction(
+              sourceCurrency as keyof typeof CELO_TOKENS,
+              brokerAddress,
+              '1000000.0', // Large approval for convenience
+            );
+
+            actionRequired = 'APPROVE_REQUIRED';
+
+            return {
+              intent,
+              transaction: transactionData,
+              actionRequired,
+              parsedCommand: {
+                recipient: recipientAddress,
+                amount: intent.amount,
+                currency: destinationCurrency,
+                sourceCurrency,
+                sendAmount,
+              },
+              exchangeRate,
+              summary: `You need to approve the Mento Broker to spend your ${sourceCurrency} before swapping.`,
+            };
+          }
+        }
+
+        // 3. Build the Swap transaction data
         // For testnet simplicity, we build a direct Swap transaction.
         // The recipient will receive the swapped tokens in their wallet.
         // TODO: Use a Router for single-tx SwapAndSend if available.
@@ -240,7 +279,7 @@ export class PaymentsService {
           to: swapTx.to as Address,
           value: swapTx.value,
           data: swapTx.data as `0x${string}`,
-          feeCurrency: CELO_TOKENS.USDm,
+          feeCurrency: (this.celoService.getTokenMap() as any).USDm,
         };
 
       } catch (error) {

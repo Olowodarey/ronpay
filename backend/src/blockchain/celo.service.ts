@@ -12,29 +12,46 @@ import { celo } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { ERC20_ABI } from '../abis/erc20';
 
+// Chain IDs
+export const CELO_CHAIN_IDS = {
+  MAINNET: 42220,
+  ALFAJORES: 11142220,
+};
+
 // Celo token addresses on Mainnet
-export const CELO_TOKENS = {
-  // === Mento Protocol Stablecoins ===
-  USDm: '0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b', // Mento Dollar
-  EURm: '0xA99dC247d6b7B2E3ab48a1fEE101b83cD6aCd82a', // Mento Euro
-  BRLm: '0x2294298942fdc79417DE9E0D740A4957E0e7783a', // Mento Brazilian Real
-  KESm: '0xC7e4635651E3e3Af82b61d3E23c159438daE3BbF', // Mento Kenyan Shilling
-  NGNm: '0x3d5ae86F34E2a82771496D140daFAEf3789dF888', // Mento Nigerian Naira
-
-  // Additional Mento Stablecoins
-  // COPm: '0x...',  // Mento Colombian Peso
-  // XOFm: '0x...',  // Mento West African Franc
-  // PHPm: '0x...',  // Mento Philippine Peso
-  // GHSm: '0x...',  // Mento Ghanaian Cedi
-  // ZARm: '0x...',  // Mento South African Rand
-
-  // === Native Circle & Tether Stablecoins ===
-  cUSDC: '0xceb09c2a6886ed289893d562b87f8d689b9d118c', // Native USDC on Celo
-  cUSDT: '0xb020D981420744F6b0FedD22bB67cd37Ce18a1d5', // Native USDT on Celo
-
-  // === Native Celo Token ===
+export const CELO_MAINNET_TOKENS = {
+  USDm: '0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b',
+  EURm: '0xA99dC247d6b7B2E3ab48a1fEE101b83cD6aCd82a',
+  BRLm: '0x2294298942fdc79417DE9E0D740A4957E0e7783a',
+  KESm: '0xC7e4635651E3e3Af82b61d3E23c159438daE3BbF',
+  NGNm: '0x3d5ae86F34E2a82771496D140daFAEf3789dF888',
+  cUSDC: '0xceb09c2a6886ed289893d562b87f8d689b9d118c',
+  cUSDT: '0xb020D981420744F6b0FedD22bB67cd37Ce18a1d5',
   CELO: 'native',
 } as const;
+
+// Celo token addresses on Sepolia (Alfajores)
+export const CELO_ALFAJORES_TOKENS = {
+  USDm: '0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b',
+  EURm: '0xA99dC247d6b7B2E3ab48a1fEE101b83cD6aCd82a',
+  BRLm: '0x2294298942fdc79417DE9E0D740A4957E0e7783a',
+  KESm: '0xC7e4635651E3e3Af82b61d3E23c159438daE3BbF',
+  NGNm: '0x3d5ae86F34E2a82771496D140daFAEf3789dF888',
+  cUSDC: '0x2F25de78D37f3008060f08994693aF412bc371c9',
+  cUSDT: '0x48065bB66110C0E97E951662961eD35aD2177395',
+  // cUSDC: '0xceb09c2a6886ed289893d562b87f8d689b9d118c', // Native USDC on Celo
+  // cUSDT: '0xb020D981420744F6b0FedD22bB67cd37Ce18a1d5', // Native USDT on Celo
+  CELO: 'native',
+} as const;
+
+// Combined export for backward compatibility or general use
+export const CELO_TOKENS = CELO_MAINNET_TOKENS;
+
+// Broker addresses
+export const MENTO_BROKER_ADDRESSES = {
+  [CELO_CHAIN_IDS.MAINNET]: '0x777A8255cA72412f0d706dc03C9D1987306B4CaD',
+  [CELO_CHAIN_IDS.ALFAJORES]: '0xB9Ae2065142EB79b6c5EB1E8778F883fad6B07Ba',
+};
 
 @Injectable()
 export class CeloService implements OnModuleInit {
@@ -256,6 +273,76 @@ export class CeloService implements OnModuleInit {
    */
   getTokenAddress(token: keyof typeof CELO_TOKENS): Address | 'native' {
     return CELO_TOKENS[token];
+  }
+
+  /**
+   * Get the active token mapping based on chain ID
+   */
+  getTokenMap() {
+    const chainId = parseInt(process.env.CELO_CHAIN_ID || '42220');
+    return chainId === CELO_CHAIN_IDS.ALFAJORES ? CELO_ALFAJORES_TOKENS : CELO_MAINNET_TOKENS;
+  }
+
+  /**
+   * Get the Broker address for the active network
+   */
+  getBrokerAddress(): Address {
+    const chainId = parseInt(process.env.CELO_CHAIN_ID || '42220');
+    return (MENTO_BROKER_ADDRESSES[chainId] || MENTO_BROKER_ADDRESSES[CELO_CHAIN_IDS.MAINNET]) as Address;
+  }
+
+  /**
+   * Get allowance of a token for a spender
+   */
+  async getAllowance(
+    token: keyof typeof CELO_TOKENS,
+    owner: Address,
+    spender: Address,
+  ): Promise<string> {
+    if (token === 'CELO') return '1000000000'; // Native CELO doesn't need allowance
+
+    const tokenMap = this.getTokenMap();
+    const tokenAddress = tokenMap[token] as Address;
+
+    try {
+      const allowance = await this.publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [owner, spender],
+      });
+
+      return formatUnits(allowance as bigint, 18);
+    } catch (error) {
+      this.logger.error(`Failed to get allowance for ${token}: ${error.message}`);
+      return '0';
+    }
+  }
+
+  /**
+   * Build an approve transaction for a token
+   */
+  async buildApproveTransaction(
+    token: keyof typeof CELO_TOKENS,
+    spender: Address,
+    amount: string = '1000000.0',
+  ) {
+    const tokenMap = this.getTokenMap();
+    const tokenAddress = tokenMap[token] as Address;
+    const amountWei = parseUnits(amount, 18);
+
+    const data = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [spender, amountWei],
+    });
+
+    return {
+      to: tokenAddress,
+      value: '0',
+      data,
+      feeCurrency: tokenMap.USDm as Address,
+    };
   }
 
   /**

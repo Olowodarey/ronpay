@@ -46,8 +46,9 @@ export class MentoService implements OnModuleInit {
     toToken: keyof typeof CELO_TOKENS,
     amountIn: string,
   ) {
-    const fromAddress = CELO_TOKENS[fromToken];
-    const toAddress = CELO_TOKENS[toToken];
+    const tokenMap = this.celoService.getTokenMap();
+    const fromAddress = tokenMap[fromToken];
+    const toAddress = tokenMap[toToken];
 
     if (fromAddress === 'native' || toAddress === 'native') {
       throw new Error('Native CELO swaps not fully supported for this operation.');
@@ -111,8 +112,9 @@ export class MentoService implements OnModuleInit {
     toToken: keyof typeof CELO_TOKENS,
     amountOut: string,
   ) {
-    const fromAddress = CELO_TOKENS[fromToken];
-    const toAddress = CELO_TOKENS[toToken];
+    const tokenMap = this.celoService.getTokenMap();
+    const fromAddress = tokenMap[fromToken];
+    const toAddress = tokenMap[toToken];
 
     if (fromAddress === 'native' || toAddress === 'native') {
       throw new Error('Native CELO swaps not fully supported for this operation.');
@@ -153,8 +155,9 @@ export class MentoService implements OnModuleInit {
     amountOut: string,
     maxAmountIn: string,
   ) {
-    const fromAddress = CELO_TOKENS[fromToken];
-    const toAddress = CELO_TOKENS[toToken];
+    const tokenMap = this.celoService.getTokenMap();
+    const fromAddress = tokenMap[fromToken];
+    const toAddress = tokenMap[toToken];
 
     const amountOutWei = utils.parseUnits(amountOut, 18);
     const maxAmountInWei = utils.parseUnits(maxAmountIn, 18);
