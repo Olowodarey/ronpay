@@ -8,12 +8,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsBoolean,
-} from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 import { PaymentsService } from './payments.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { ReceiptsService } from '../transactions/receipts.service';
@@ -48,6 +43,20 @@ export class PurchaseAirtimeDto {
   @IsOptional()
   @IsBoolean()
   skipVerification?: boolean;
+}
+
+export class QueryAirtimeTransactionDto {
+  @IsOptional()
+  @IsString()
+  orderId?: string;
+
+  @IsOptional()
+  @IsString()
+  requestId?: string;
+
+  @IsOptional()
+  @IsString()
+  mobileNumber?: string;
 }
 
 @Controller('payments')
@@ -203,6 +212,119 @@ export class PaymentsController {
   @Get('tokens')
   getSupportedTokens() {
     return this.paymentsService.getSupportedTokens();
+  }
+
+  /**
+   * Nellobytes Webhook Callback Handler
+   * POST /payments/nellobytes-callback
+   *
+   * Receives real-time transaction status updates from Nellobytes API.
+   * Called by Nellobytes after airtime purchase completion.
+   *
+   * Payload includes:
+   * - orderid: Transaction order ID from Nellobytes
+   * - requestid: Request ID we sent to Nellobytes (maps to txHash)
+   * - statuscode: HTTP status code
+   * - orderstatus: ORDER_COMPLETED, FAILED, PENDING, etc.
+   * - amountcharged: Actual amount debited
+   * - mobilenumber: Phone number that received airtime
+   * - mobilenetwork: Network provider (AirTel, GLO, MTN, 9Mobile)
+   */
+  @Post('nellobytes-callback')
+  @HttpCode(HttpStatus.OK)
+  async handleNellobytesCallback(@Body() payload: Record<string, unknown>) {
+    const requestId =
+      (payload.requestid as string) || (payload.RequestID as string);
+
+    // The requestId should match our txHash
+    if (!requestId) {
+      return {
+        received: true,
+        warning: 'No request ID in callback payload',
+      };
+    }
+
+    try {
+      // Find transaction by txHash (which we sent as RequestID to Nellobytes)
+      const transaction =
+        await this.transactionsService.findByTxHash(requestId);
+
+      if (!transaction) {
+        return {
+          received: true,
+          warning: `Transaction not found for requestId: ${requestId}`,
+        };
+      }
+
+      // Map Nellobytes status codes to our status
+      let status = 'pending';
+      const statusCode = payload.statuscode as string;
+      const orderStatus = payload.orderstatus as string;
+
+      if (statusCode === '200' || orderStatus === 'ORDER_COMPLETED') {
+        status = 'success';
+      } else if (statusCode === '100' || orderStatus === 'ORDER_RECEIVED') {
+        status = 'pending'; // Still processing
+      } else if (
+        orderStatus?.includes('FAILED') ||
+        orderStatus?.includes('CANCELLED')
+      ) {
+        status = 'failed';
+      }
+
+      // Update transaction with airtime delivery confirmation and store callback data
+      await this.transactionsService.updateAirtimeCallback(
+        requestId,
+        status,
+        payload,
+      );
+
+      return {
+        received: true,
+        status,
+        orderId: payload.orderid,
+        message: 'Airtime transaction status recorded',
+      };
+    } catch (error) {
+      // Log but don't fail - Nellobytes expects 200 OK response
+      console.error('Error processing Nellobytes callback:', error);
+      return {
+        received: true,
+        warning: 'Error processing callback, but status recorded',
+      };
+    }
+  }
+
+  /**
+   * Query Nellobytes airtime transaction status
+   * GET /payments/airtime-query?orderId=6706050171&mobileNumber=09046144400
+   *
+   * Query an airtime purchase transaction from Nellobytes.
+   * Can query by OrderID (received from purchase) or RequestID (custom tracking ID).
+   * Including MobileNumber improves query success rate with Nellobytes API.
+   *
+   * Returns transaction status including:
+   * - status: ORDER_COMPLETED, ORDER_RECEIVED, FAILED, etc.
+   * - mobilenetwork: The provider (AirTel, GLO, MTN, etc.)
+   * - amountcharged: Amount debited from wallet
+   * - remark: Human-readable status message
+   */
+  @Get('airtime-query')
+  async queryAirtimeTransaction(@Query() query: QueryAirtimeTransactionDto) {
+    if (!query.orderId && !query.requestId) {
+      throw new Error('Either orderId or requestId is required');
+    }
+
+    const nellobytesService = this.paymentsService['nellobytesService'];
+    if (!nellobytesService) {
+      throw new Error('Nellobytes service not available');
+    }
+
+    return nellobytesService.queryTransaction({
+      orderId: query.orderId,
+      requestId: query.requestId,
+      mobileNumber: query.mobileNumber,
+    });
   }
 
   /**

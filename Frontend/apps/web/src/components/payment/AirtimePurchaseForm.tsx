@@ -70,7 +70,14 @@ export function AirtimePurchaseForm({
     if (isNaN(amountNum) || amountNum <= 0) {
       setStatus({
         type: "error",
-        message: "Amount must be greater than 0",
+        message: "Amount must be a number greater than 0",
+      });
+      return;
+    }
+    if (amountNum < 50) {
+      setStatus({
+        type: "error",
+        message: "Amount must be at least ₦50",
       });
       return;
     }
@@ -210,7 +217,7 @@ export function AirtimePurchaseForm({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="100"
-            min="1"
+            min="50"
             step="1"
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
             disabled={isProcessing}
@@ -276,8 +283,9 @@ export function AirtimePurchaseForm({
               Processing...
             </>
           ) : (
-              `Purchase ${amount || "0"} NGN ${provider === "Auto-detect" ? "" : provider
-              } Airtime`
+            `Purchase ${amount || "0"} NGN ${
+              provider === "Auto-detect" ? "" : provider
+            } Airtime`
           )}
         </button>
       </form>

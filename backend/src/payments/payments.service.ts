@@ -54,7 +54,8 @@ export class PaymentsService {
     }
 
     // Try phone number / alias resolution via ODIS
-    const resolved = await this.identityService.resolvePhoneNumber(rawRecipient);
+    const resolved =
+      await this.identityService.resolvePhoneNumber(rawRecipient);
     if (resolved) {
       this.logger.log(`Resolved ${rawRecipient} → ${resolved}`);
       return resolved as Address;
@@ -83,7 +84,9 @@ export class PaymentsService {
     }
 
     // 2. Get or create conversation session for context
-    const sessionId = await this.conversationService.getOrCreateSession(dto.senderAddress);
+    const sessionId = await this.conversationService.getOrCreateSession(
+      dto.senderAddress,
+    );
 
     // 3. Store user message in conversation
     await this.conversationService.addMessage(
@@ -95,13 +98,18 @@ export class PaymentsService {
 
     // 4. Build contextual message with conversation history
     const history = await this.conversationService.getSessionHistory(sessionId);
-    const context = this.conversationService.formatContextForAI(history.slice(0, -1)); // exclude current
+    const context = this.conversationService.formatContextForAI(
+      history.slice(0, -1),
+    ); // exclude current
     const contextualMessage = context
       ? `${dto.message}\n${context}`
       : dto.message;
 
     // 5. Parse intent with selected AI (with context)
-    const intent = await aiService.parsePaymentIntent(contextualMessage, dto.language);
+    const intent = await aiService.parsePaymentIntent(
+      contextualMessage,
+      dto.language,
+    );
     this.logger.log(`Parsed intent: ${JSON.stringify(intent)}`);
 
     // 6. Validate confidence
@@ -122,15 +130,17 @@ export class PaymentsService {
 
     // Airtime Flow
     if (['buy_airtime'].includes(intent.action)) {
-      return { sessionId, ...await this.handleAirtimeIntent(intent) };
+      return { sessionId, ...(await this.handleAirtimeIntent(intent)) };
     }
 
     // Standard Crypto Transfer Flow
     if (intent.action === 'send_payment') {
-      return { sessionId, ...await this.buildTransferResponse(intent) };
+      return { sessionId, ...(await this.buildTransferResponse(intent)) };
     }
 
-    throw new BadRequestException(`Action "${intent.action}" not supported yet.`);
+    throw new BadRequestException(
+      `Action "${intent.action}" not supported yet.`,
+    );
   }
 
   // ────────────────────────────────────────────────────────────
@@ -142,7 +152,9 @@ export class PaymentsService {
    * Useful for saving AI tokens during development
    */
   async parsePaymentIntentDirect(intent: PaymentIntent, senderAddress: string) {
-    this.logger.log(`Direct intent parsing (bypassing AI): ${JSON.stringify(intent)}`);
+    this.logger.log(
+      `Direct intent parsing (bypassing AI): ${JSON.stringify(intent)}`,
+    );
 
     if (!intent || (intent.confidence && intent.confidence < 0.5)) {
       throw new BadRequestException(
@@ -160,7 +172,9 @@ export class PaymentsService {
       return this.buildTransferResponse(intent, senderAddress);
     }
 
-    throw new BadRequestException(`Action "${intent.action}" not supported yet.`);
+    throw new BadRequestException(
+      `Action "${intent.action}" not supported yet.`,
+    );
   }
 
   // ────────────────────────────────────────────────────────────
@@ -176,12 +190,19 @@ export class PaymentsService {
    * - The recipient gets sourceCurrency tokens (they can swap later)
    * - Exchange rate info is included in the response
    */
-  private async buildTransferResponse(intent: PaymentIntent, senderAddress?: string) {
+  private async buildTransferResponse(
+    intent: PaymentIntent,
+    senderAddress?: string,
+  ) {
     if (!intent.recipient) {
-      throw new BadRequestException('Could not determine payment recipient from message');
+      throw new BadRequestException(
+        'Could not determine payment recipient from message',
+      );
     }
     if (!intent.amount || intent.amount <= 0) {
-      throw new BadRequestException('Could not determine valid payment amount from message');
+      throw new BadRequestException(
+        'Could not determine valid payment amount from message',
+      );
     }
 
     // Spending limit enforcement
@@ -234,7 +255,9 @@ export class PaymentsService {
           );
 
           if (parseFloat(allowance) < parseFloat(sendAmount)) {
-            this.logger.log(`Insufficient allowance for Broker. Required: ${sendAmount}, Current: ${allowance}`);
+            this.logger.log(
+              `Insufficient allowance for Broker. Required: ${sendAmount}, Current: ${allowance}`,
+            );
 
             // Build approval transaction instead of swap
             transactionData = await this.celoService.buildApproveTransaction(
@@ -280,7 +303,6 @@ export class PaymentsService {
           data: swapTx.data as `0x${string}`,
           feeCurrency: (this.celoService.getTokenMap() as any).USDm,
         };
-
       } catch (error) {
         this.logger.error(`Mento swap building failed: ${error.message}`);
         throw new BadRequestException(
@@ -297,7 +319,8 @@ export class PaymentsService {
     }
 
     // Confirmation flag for amounts above threshold
-    const requiresConfirmation = intent.amount > AGENT_CONFIG.confirmationThreshold;
+    const requiresConfirmation =
+      intent.amount > AGENT_CONFIG.confirmationThreshold;
 
     return {
       intent,
@@ -329,9 +352,16 @@ export class PaymentsService {
    */
   private async handleAirtimeIntent(intent: PaymentIntent) {
     const amountInNgn = intent.amount;
+    const phoneNumber = intent.recipient;
 
     if (!amountInNgn) {
       throw new BadRequestException('amount field is required');
+    }
+
+    if (!phoneNumber) {
+      throw new BadRequestException(
+        'recipient (phone number) field is required for airtime',
+      );
     }
 
     // Spending limit enforcement (approximate USD conversion)
@@ -341,6 +371,12 @@ export class PaymentsService {
         `Estimated transaction value ~$${estimatedUsd.toFixed(0)} exceeds the maximum limit of $${AGENT_CONFIG.maxTransactionAmount}.`,
       );
     }
+
+    // Detect network from phone number
+    const detectedNetwork = this.nellobytesService.detectNetwork(phoneNumber);
+    this.logger.log(
+      `Airtime intent: Detected network "${detectedNetwork}" from phone ${phoneNumber}`,
+    );
 
     let exchangeRate = 1500; // Fallback
     let amountInUsdm = '0.07';
@@ -353,7 +389,7 @@ export class PaymentsService {
         'USDm',
         amountInNgn.toString(),
       );
-      
+
       amountInUsdm = parseFloat(bestRoute.bestRoute.amountOut).toFixed(2);
       exchangeRate = 1 / bestRoute.bestRoute.price;
       routeUsed = bestRoute.bestRoute.source;
@@ -362,7 +398,9 @@ export class PaymentsService {
         `Route optimizer: ${bestRoute.bestRoute.path.join(' → ')} = ${amountInUsdm} USDm (${routeUsed})`,
       );
     } catch (routeError) {
-      this.logger.warn(`Route optimizer failed, falling back to direct Mento: ${routeError.message}`);
+      this.logger.warn(
+        `Route optimizer failed, falling back to direct Mento: ${routeError.message}`,
+      );
 
       try {
         const quote = await this.mentoService.getSwapQuote(
@@ -374,7 +412,10 @@ export class PaymentsService {
         exchangeRate = 1 / quote.price;
         routeUsed = 'mento-direct-fallback';
       } catch (mentoError) {
-        this.logger.error('All routing failed, using static fallback', mentoError.stack);
+        this.logger.error(
+          'All routing failed, using static fallback',
+          mentoError.stack,
+        );
         amountInUsdm = (amountInNgn / 1500).toFixed(2);
         routeUsed = 'static-fallback';
       }
@@ -407,8 +448,9 @@ export class PaymentsService {
       meta: {
         serviceType: intent.action,
         provider: provider,
-        biller: intent.biller || intent.provider,
+        biller: intent.biller || intent.provider || detectedNetwork || '', // Store detected network
         recipient: intent.recipient,
+        detectedNetwork: detectedNetwork || 'AUTO_DETECT', // Explicitly store for clarity
         originalAmountNgn: amountInNgn,
         exchangeRate,
         variation_code: intent.package,
@@ -431,6 +473,8 @@ export class PaymentsService {
    * For VTPASS: If we see a successful payment to Treasury with VTPASS metadata, trigger the service.
    */
   async recordTransaction(dto: ExecutePaymentDto) {
+    console.log('dto.metadata', dto);
+
     if (!/^0x[a-fA-F0-9]{64}$/.test(dto.txHash)) {
       throw new BadRequestException('Invalid transaction hash format');
     }
@@ -469,9 +513,11 @@ export class PaymentsService {
           if (
             isToTreasury &&
             dto.metadata &&
-            (dto.metadata.provider === 'NELLOBYTES')
+            dto.metadata.provider === 'NELLOBYTES'
           ) {
-            this.logger.log(`Verifying token receipt for treasury: ${dto.txHash}`);
+            this.logger.log(
+              `Verifying token receipt for treasury: ${dto.txHash}`,
+            );
 
             const isVerified = await this.celoService.verifyERC20Transfer(
               dto.txHash as `0x${string}`,
@@ -481,26 +527,51 @@ export class PaymentsService {
             );
 
             if (!isVerified) {
-              this.logger.error(`Token transfer verification failed: ${dto.txHash}`);
-              await this.transactionsService.updateStatus(dto.txHash, 'failed_verification');
+              this.logger.error(
+                `Token transfer verification failed: ${dto.txHash}`,
+              );
+              await this.transactionsService.updateStatus(
+                dto.txHash,
+                'failed_verification',
+              );
               return;
             }
 
-            this.logger.log(`Token receipt verified. Triggering Provider: ${dto.metadata.provider} for ${dto.txHash}`);
+            this.logger.log(
+              `Token receipt verified. Triggering Provider: ${dto.metadata.provider} for ${dto.txHash}`,
+            );
             try {
-              // Wait, if provider is set to NELLOBYTES, then biller stores the network.
+              // Use detected network if available, otherwise fallback to auto-detect
+              const networkToUse =
+                dto.metadata.detectedNetwork ||
+                dto.metadata.biller ||
+                dto.metadata.recipient ||
+                '';
+
+              this.logger.log(
+                `Airtime purchase: Using network='${networkToUse}', phone='${dto.metadata.recipient}'`,
+              );
 
               await this.nellobytesService.buyAirtime({
-                mobile_network: dto.metadata.biller || dto.metadata.recipient || '', // Use biller or fallback to auto-detect
+                mobile_network: networkToUse,
                 amount: dto.metadata.originalAmountNgn || 100,
                 mobile_number: dto.metadata.recipient,
                 request_id: dto.txHash,
               });
 
-              await this.transactionsService.updateStatus(dto.txHash, 'success_delivered');
+              await this.transactionsService.updateStatus(
+                dto.txHash,
+                'success_delivered',
+              );
             } catch (err) {
-              this.logger.error(`Service execution failed after payment: ${err.message}`, err.stack);
-              await this.transactionsService.updateStatus(dto.txHash, 'failed_service_error');
+              this.logger.error(
+                `Service execution failed after payment: ${err.message}`,
+                err.stack,
+              );
+              await this.transactionsService.updateStatus(
+                dto.txHash,
+                'failed_service_error',
+              );
             }
           }
         } else {
@@ -508,7 +579,10 @@ export class PaymentsService {
         }
       })
       .catch((error) => {
-        this.logger.error(`Transaction confirmation error: ${error.message}`, error.stack);
+        this.logger.error(
+          `Transaction confirmation error: ${error.message}`,
+          error.stack,
+        );
         this.transactionsService.updateStatus(dto.txHash, 'failed');
       });
 
@@ -548,7 +622,12 @@ export class PaymentsService {
    * Get a Mento swap quote for cross-currency transfers
    * e.g. "How much USDm do I need to send 1000 NGNm?"
    */
-  async getSwapQuote(from: string, to: string, amount: string, mode: 'fixedInput' | 'fixedOutput' = 'fixedInput') {
+  async getSwapQuote(
+    from: string,
+    to: string,
+    amount: string,
+    mode: 'fixedInput' | 'fixedOutput' = 'fixedInput',
+  ) {
     if (!from || !to || !amount) {
       throw new BadRequestException('from, to, and amount are required');
     }
@@ -569,13 +648,13 @@ export class PaymentsService {
       const quote = await this.mentoService.getAmountInQuote(
         from as keyof typeof CELO_TOKENS,
         to as keyof typeof CELO_TOKENS,
-        amount
+        amount,
       );
 
       return {
         from,
         to,
-        sendAmount: amount,       // Amount recipient gets (fixed)
+        sendAmount: amount, // Amount recipient gets (fixed)
         debitAmount: quote.amountIn, // Amount debited from sender (calculated)
         rate: quote.price,
         source: quote.source,
@@ -594,7 +673,7 @@ export class PaymentsService {
       from,
       to,
       sendAmount: quote.amountOut, // Amount recipient gets (calculated)
-      debitAmount: amount,         // Amount debited from sender (fixed)
+      debitAmount: amount, // Amount debited from sender (fixed)
       rate: quote.price,
       source: quote.source,
       summary: `Sending ${amount} ${from} will result in ${parseFloat(quote.amountOut).toFixed(4)} ${to}`,
@@ -623,16 +702,21 @@ export class PaymentsService {
     memo?: string;
     skipVerification?: boolean;
   }) {
-    this.logger.log(`Processing airtime purchase: ${JSON.stringify({
-      txHash: dto.txHash,
-      phoneNumber: dto.phoneNumber,
-      amount: dto.amount,
-      provider: dto.provider || 'AUTO_DETECT',
-    })}`);
+    this.logger.log(
+      `Processing airtime purchase: ${JSON.stringify({
+        txHash: dto.txHash,
+        phoneNumber: dto.phoneNumber,
+        amount: dto.amount,
+        provider: dto.provider,
+        providerFallback: 'AUTO_DETECT',
+      })}`,
+    );
 
     // 1. Validate parameters
     if (!dto.phoneNumber || !dto.amount) {
-      throw new BadRequestException('Missing required fields: phoneNumber, amount');
+      throw new BadRequestException(
+        'Missing required fields: phoneNumber, amount',
+      );
     }
 
     const isDev = process.env.NODE_ENV !== 'production';
@@ -641,7 +725,9 @@ export class PaymentsService {
     if (!skipVerification) {
       const treasuryAddress = process.env.RONPAY_TREASURY_ADDRESS;
       if (!treasuryAddress) {
-        throw new InternalServerErrorException('Treasury address not configured');
+        throw new InternalServerErrorException(
+          'Treasury address not configured',
+        );
       }
 
       // Dynamically calculate expected USDm amount from Mento
@@ -653,9 +739,13 @@ export class PaymentsService {
           dto.amount.toString(),
         );
         expectedUsdm = parseFloat(quote.amountOut).toFixed(2);
-        this.logger.log(`Dynamic verification amount: ${expectedUsdm} USDm for ${dto.amount} NGN`);
+        this.logger.log(
+          `Dynamic verification amount: ${expectedUsdm} USDm for ${dto.amount} NGN`,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to get Mento quote for verification, using fallback: ${error.message}`);
+        this.logger.warn(
+          `Failed to get Mento quote for verification, using fallback: ${error.message}`,
+        );
         expectedUsdm = (dto.amount / 1500).toFixed(2);
       }
 
@@ -687,7 +777,11 @@ export class PaymentsService {
         request_id: dto.txHash,
       });
 
-      const transactionStatus = response.status === 'ORDER_COMPLETED' || response.status === 'ORDER_RECEIVED' ? 'delivered' : 'pending';
+      const transactionStatus =
+        response.status === 'ORDER_COMPLETED' ||
+        response.status === 'ORDER_RECEIVED'
+          ? 'delivered'
+          : 'pending';
 
       return {
         success: transactionStatus === 'delivered',
@@ -708,7 +802,10 @@ export class PaymentsService {
         fullResponse: response,
       };
     } catch (error) {
-      this.logger.error(`Airtime purchase failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Airtime purchase failed: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException(
         `Failed to process airtime purchase: ${error.message}`,
       );

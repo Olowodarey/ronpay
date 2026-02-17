@@ -36,11 +36,50 @@ export class TransactionsService {
     await this.transactionsRepository.update({ txHash }, { status });
   }
 
+  /**
+   * Update transaction with airtime callback data
+   * Stores Nellobytes response in metadata for audit trail
+   */
+  async updateAirtimeCallback(
+    txHash: string,
+    status: string,
+    callbackData: any,
+  ): Promise<void> {
+    const transaction = await this.findByTxHash(txHash);
+    if (!transaction) return;
+
+    console.log("callback", callbackData);
+
+    const updatedMetadata = {
+      ...(transaction.metadata || {}),
+      airtimeCallback: {
+        orderId: callbackData.orderid || callbackData.OrderID,
+        statusCode: callbackData.statuscode || callbackData.statusCode,
+        status: callbackData.orderstatus || callbackData.status,
+        mobileNumber: callbackData.mobilenumber || callbackData.MobileNumber,
+        mobileNetwork: callbackData.mobilenetwork || callbackData.MobileNetwork,
+        amountCharged: callbackData.amountcharged || callbackData.AmountCharged,
+        walletBalance: callbackData.walletbalance || callbackData.WalletBalance,
+        remark: callbackData.orderremark || callbackData.Remark,
+        receivedAt: new Date().toISOString(),
+      },
+    };
+
+    await this.transactionsRepository.update(
+      { txHash },
+      { status, metadata: updatedMetadata },
+    );
+  }
+
   async getStats(address: string) {
     const transactions = await this.findByAddress(address);
-    
-    const sent = transactions.filter(tx => tx.fromAddress.toLowerCase() === address.toLowerCase());
-    const received = transactions.filter(tx => tx.toAddress.toLowerCase() === address.toLowerCase());
+
+    const sent = transactions.filter(
+      (tx) => tx.fromAddress.toLowerCase() === address.toLowerCase(),
+    );
+    const received = transactions.filter(
+      (tx) => tx.toAddress.toLowerCase() === address.toLowerCase(),
+    );
 
     return {
       total: transactions.length,
