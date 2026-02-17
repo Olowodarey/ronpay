@@ -2,12 +2,22 @@
 
 import { useAccount, useBalance } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
 
-const cUSD_ADDRESS = "0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b";
-const USDC_ADDRESS = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C";
-const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e";
+interface SupportedTokens {
+  tokens: string[];
+  addresses: Record<string, string>;
+}
 
-function BalanceDisplay({ address, token, symbol }: { address: `0x${string}`, token?: `0x${string}`, symbol: string }) {
+function BalanceDisplay({
+  address,
+  token,
+  symbol,
+}: {
+  address: `0x${string}`;
+  token?: `0x${string}`;
+  symbol: string;
+}) {
   const { data, isLoading } = useBalance({
     address,
     token,
@@ -17,7 +27,9 @@ function BalanceDisplay({ address, token, symbol }: { address: `0x${string}`, to
     <div className="flex justify-between items-center">
       <span className="text-muted-foreground">{symbol}</span>
       <span className="font-medium">
-        {isLoading ? "Loading..." : `${parseFloat(data?.formatted || '0').toFixed(4)}`}
+        {isLoading
+          ? "Loading..."
+          : `${parseFloat(data?.formatted || "0").toFixed(4)}`}
       </span>
     </div>
   );
@@ -25,6 +37,34 @@ function BalanceDisplay({ address, token, symbol }: { address: `0x${string}`, to
 
 export function UserBalance() {
   const { address, isConnected } = useAccount();
+  const [supportedTokens, setSupportedTokens] =
+    useState<SupportedTokens | null>(null);
+  const [isLoadingTokens, setIsLoadingTokens] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchSupportedTokens() {
+      try {
+        setIsLoadingTokens(true);
+        const response = await fetch("http://localhost:3001/payments/tokens");
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch supported tokens");
+        }
+
+        const data = await response.json();
+        setSupportedTokens(data);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching supported tokens:", err);
+        setError("Failed to load supported tokens");
+      } finally {
+        setIsLoadingTokens(false);
+      }
+    }
+
+    fetchSupportedTokens();
+  }, []);
 
   if (!isConnected || !address) {
     return null;
@@ -37,12 +77,32 @@ export function UserBalance() {
         <p className="text-sm text-muted-foreground truncate pt-1">{address}</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2 pt-2 border-t">
-          <BalanceDisplay address={address} symbol="CELO" token={undefined} />
-          <BalanceDisplay address={address} token={cUSD_ADDRESS} symbol="cUSD" />
-          <BalanceDisplay address={address} token={USDC_ADDRESS} symbol="USDC" />
-          <BalanceDisplay address={address} token={USDT_ADDRESS} symbol="USDT" />
-        </div>
+        {isLoadingTokens ? (
+          <div className="text-center text-muted-foreground py-4">
+            Loading supported tokens...
+          </div>
+        ) : error ? (
+          <div className="text-center text-destructive py-4">{error}</div>
+        ) : supportedTokens ? (
+          <div className="space-y-2 pt-2 border-t">
+            {supportedTokens.tokens.map((tokenSymbol) => {
+              const tokenAddress = supportedTokens.addresses[tokenSymbol];
+              const isNativeToken =
+                tokenSymbol === "CELO" || tokenAddress === "native";
+
+              return (
+                <BalanceDisplay
+                  key={tokenSymbol}
+                  address={address}
+                  symbol={tokenSymbol}
+                  token={
+                    isNativeToken ? undefined : (tokenAddress as `0x${string}`)
+                  }
+                />
+              );
+            })}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
