@@ -60,7 +60,7 @@ const TRUSTED_ISSUERS: Address[] = [
 @Injectable()
 export class IdentityService implements OnModuleInit {
   private readonly logger = new Logger(IdentityService.name);
-  private readonly SERVICE_CONTEXT = OdisUtils.Query.ODIS_MAINNET_CONTEXT_PNP;
+  private SERVICE_CONTEXT: any;
 
   private publicClient: any;
   private isProductionMode = false;
@@ -71,6 +71,18 @@ export class IdentityService implements OnModuleInit {
       chain: celo,
       transport: http(),
     });
+
+    // Auto-detect ODIS context based on chain ID
+    const chainId = process.env.CELO_CHAIN_ID;
+    if (chainId === '44787') {
+      // Alfajores testnet
+      this.SERVICE_CONTEXT = OdisUtils.Query.ODIS_ALFAJORES_CONTEXT_PNP;
+      this.logger.log('Using ODIS Alfajores testnet context');
+    } else {
+      // Mainnet (42220) or default
+      this.SERVICE_CONTEXT = OdisUtils.Query.ODIS_MAINNET_CONTEXT_PNP;
+      this.logger.log('Using ODIS mainnet context');
+    }
   }
 
   onModuleInit() {
@@ -78,9 +90,27 @@ export class IdentityService implements OnModuleInit {
     const odisAddress = process.env.ODIS_ACCOUNT_ADDRESS;
 
     if (odisPrivateKey && odisAddress) {
-      this.isProductionMode = true;
-      this.odisAccount = privateKeyToAccount(odisPrivateKey as `0x${string}`);
-      this.logger.log(`ODIS production mode enabled (account: ${odisAddress})`);
+      // Validate and normalize private key format
+      let normalizedKey = odisPrivateKey.trim();
+      if (!normalizedKey.startsWith('0x')) {
+        normalizedKey = '0x' + normalizedKey;
+      }
+
+      if (normalizedKey.length !== 66) {
+        this.logger.error(
+          `Invalid ODIS_PRIVATE_KEY length: ${normalizedKey.length} (expected 66 chars including 0x)`,
+        );
+        return;
+      }
+
+      try {
+        this.isProductionMode = true;
+        this.odisAccount = privateKeyToAccount(normalizedKey as `0x${string}`);
+        this.logger.log(`ODIS production mode enabled (account: ${odisAddress})`);
+      } catch (error) {
+        this.logger.error(`Failed to initialize ODIS account: ${error.message}`);
+        this.isProductionMode = false;
+      }
     } else {
       this.logger.warn(
         'ODIS running in development mode (mock fallback). Set ODIS_PRIVATE_KEY and ODIS_ACCOUNT_ADDRESS for production.',

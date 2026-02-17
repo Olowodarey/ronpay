@@ -53,13 +53,30 @@ export class CeloService implements OnModuleInit {
   onModuleInit() {
     const schedulerKey = process.env.SCHEDULER_PRIVATE_KEY;
     if (schedulerKey) {
-      this.backendAccount = privateKeyToAccount(schedulerKey as `0x${string}`);
-      this.walletClient = createWalletClient({
-        account: this.backendAccount,
-        chain: celo,
-        transport: http(process.env.CELO_RPC_URL || 'https://forno.celo.org'),
-      });
-      this.logger.log(`Backend signing wallet initialised: ${this.backendAccount.address}`);
+      // Validate and normalize private key format
+      let normalizedKey = schedulerKey.trim();
+      if (!normalizedKey.startsWith('0x')) {
+        normalizedKey = '0x' + normalizedKey;
+      }
+
+      if (normalizedKey.length !== 66) {
+        this.logger.error(
+          `Invalid SCHEDULER_PRIVATE_KEY length: ${normalizedKey.length} (expected 66 chars including 0x)`,
+        );
+        return;
+      }
+
+      try {
+        this.backendAccount = privateKeyToAccount(normalizedKey as `0x${string}`);
+        this.walletClient = createWalletClient({
+          account: this.backendAccount,
+          chain: celo,
+          transport: http(process.env.CELO_RPC_URL || 'https://forno.celo.org'),
+        });
+        this.logger.log(`Backend signing wallet initialised: ${this.backendAccount.address}`);
+      } catch (error) {
+        this.logger.error(`Failed to initialize scheduler wallet: ${error.message}`);
+      }
     } else {
       this.logger.warn(
         'SCHEDULER_PRIVATE_KEY not set — scheduled payments will fail. Set this env var for production.',
