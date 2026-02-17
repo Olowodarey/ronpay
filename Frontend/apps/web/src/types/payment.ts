@@ -37,6 +37,15 @@ export interface ParseIntentResponse {
   intent: PaymentIntent;
   transaction: TransactionData;
   parsedCommand: ParsedCommand;
+  actionRequired?: string;
+  exchangeRate?: {
+    from: string;
+    to: string;
+    rate: number;
+    debitAmount: string;
+    receiveAmount: string;
+    source: string;
+  };
 }
 
 export interface ExecutePaymentRequest {

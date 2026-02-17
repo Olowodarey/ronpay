@@ -153,12 +153,16 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
         address,
       );
 
+      const isApproveRequired = parseResponse.actionRequired === "APPROVE_REQUIRED";
+
       // Step 2: Sign and send via MiniPay
       setStatus({
         type: "signing",
-        message: isCrossCurrency
-          ? `Please sign: ${swapQuote?.debitAmount || "..."} ${sourceCurrency} → ${amountNum} ${currency}`
-          : "Please sign the transaction in MiniPay...",
+        message: isApproveRequired
+          ? `Step 1: Please approve the Mento Broker to spend your ${sourceCurrency}...`
+          : isCrossCurrency
+            ? `Step 2: Please sign your ${sourceCurrency} → ${amountNum} ${currency} swap...`
+            : "Please sign the transaction in MiniPay...",
       });
 
       sendTransaction(
@@ -170,6 +174,16 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
         {
           onSuccess: async (hash) => {
             try {
+              if (isApproveRequired) {
+                setStatus({
+                  type: "success",
+                  message: `✅ Approval successful! Now click "Send" again to complete your ${amountNum} ${currency} transfer.`,
+                });
+                setIsProcessing(false);
+                // Don't call executePayment for approvals
+                return;
+              }
+
               setStatus({
                 type: "confirming",
                 message: "Recording transaction...",
