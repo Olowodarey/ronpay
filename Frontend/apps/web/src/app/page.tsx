@@ -35,7 +35,7 @@ interface Purchase {
 
 export default function Home() {
   const [country, setCountry] = React.useState("ghana");
-  const [token, setToken] = React.useState("usdt");
+  const [token, setToken] = React.useState("USDm");
   const [activeTab, setActiveTab] = React.useState("home");
   const [messages, setMessages] = React.useState<Message[]>([
     {

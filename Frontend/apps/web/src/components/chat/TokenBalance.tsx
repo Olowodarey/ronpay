@@ -8,22 +8,42 @@ interface TokenBalanceProps {
   token: string;
 }
 
-const tokenAddresses = {
-  usdt: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e" as `0x${string}`, // USDT on Celo
-  cusd: "0xdE9e4C3ce781b4bA68120d6261cbad65ce0aB00b" as `0x${string}`, // cUSD on Celo
-  celo: undefined, // Native CELO
-};
-
 export function TokenBalance({ token }: TokenBalanceProps) {
   const { address } = useAccount();
-  const tokenAddress = tokenAddresses[token as keyof typeof tokenAddresses];
+  const [tokenAddress, setTokenAddress] = React.useState<
+    `0x${string}` | undefined
+  >(undefined);
+  const [isLoadingAddress, setIsLoadingAddress] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchTokenAddress() {
+      try {
+        setIsLoadingAddress(true);
+        const response = await fetch("http://localhost:3001/payments/tokens");
+        if (response.ok) {
+          const data = await response.json();
+          const addr = data.addresses[token];
+          // If token is native (CELO), set to undefined
+          setTokenAddress(
+            addr === "native" ? undefined : (addr as `0x${string}`),
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching token address:", err);
+      } finally {
+        setIsLoadingAddress(false);
+      }
+    }
+
+    fetchTokenAddress();
+  }, [token]);
 
   const { data: balance, isLoading } = useBalance({
     address: address,
     token: tokenAddress,
   });
 
-  if (isLoading) {
+  if (isLoading || isLoadingAddress) {
     return (
       <div className="flex items-center gap-1.5">
         <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />

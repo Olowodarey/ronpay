@@ -5,6 +5,7 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { MoreVertical } from "lucide-react";
 import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
 import { TokenBalance } from "@/components/chat/TokenBalance";
+import { useEffect, useState } from "react";
 
 interface ChatHeaderProps {
   country: string;
@@ -19,12 +20,6 @@ const countries = [
   { value: "kenya", label: "Kenya", icon: "🇰🇪" },
 ];
 
-const tokens = [
-  { value: "usdt", label: "USDT",  },
-  { value: "celo", label: "CELO", },
-  { value: "cusd", label: "cUSD", },
-];
-
 export function ChatHeader({
   country,
   token,
@@ -32,6 +27,31 @@ export function ChatHeader({
   onTokenChange,
 }: ChatHeaderProps) {
   const { address, isConnected } = useMiniPayWallet();
+  const [tokens, setTokens] = useState([
+    { value: "USDm", label: "USDm" },
+    { value: "CELO", label: "CELO" },
+  ]);
+
+  useEffect(() => {
+    async function fetchSupportedTokens() {
+      try {
+        const response = await fetch("http://localhost:3001/payments/tokens");
+        if (response.ok) {
+          const data = await response.json();
+          const tokenOptions = data.tokens.map((tokenSymbol: string) => ({
+            value: tokenSymbol,
+            label: tokenSymbol,
+          }));
+          setTokens(tokenOptions);
+        }
+      } catch (err) {
+        console.error("Error fetching supported tokens:", err);
+        // Keep default tokens on error
+      }
+    }
+
+    fetchSupportedTokens();
+  }, []);
 
   // Format address for display
   const formatAddress = (addr: string) => {
