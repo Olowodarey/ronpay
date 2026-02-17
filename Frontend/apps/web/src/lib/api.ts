@@ -172,6 +172,42 @@ class ApiService {
   }
 
   /**
+   * Get a swap quote for cross-currency transfers
+   */
+  async getSwapQuote(
+    from: string,
+    to: string,
+    amount: string,
+    mode: "fixedInput" | "fixedOutput" = "fixedInput",
+  ): Promise<{
+    from: string;
+    to: string;
+    sendAmount: string;
+    debitAmount: string;
+    rate: number;
+    source: string;
+    summary: string;
+  }> {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/payments/swap-quote?from=${from}&to=${to}&amount=${amount}&mode=${mode}`,
+      );
+
+      if (!response.ok) {
+        const error: ApiError = await response.json();
+        throw new Error(error.message || "Failed to get swap quote");
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Swap quote failed: ${error.message}`);
+      }
+      throw new Error("Failed to get swap quote");
+    }
+  }
+
+  /**
    * Get supported tokens from backend
    */
   async getSupportedTokens(): Promise<{

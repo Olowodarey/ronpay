@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Loader2,
   Wallet,
@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   XCircle,
   Send,
+  ArrowRightLeft,
 } from "lucide-react";
 import { useSendTransaction } from "wagmi";
 import { api } from "@/lib/api";
@@ -31,7 +32,8 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
   ]);
   const [recipientAddress, setRecipientAddress] = useState("");
   const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("USDm");
+  const [currency, setCurrency] = useState("USDm"); // Destination: what recipient gets
+  const [sourceCurrency, setSourceCurrency] = useState("USDm"); // Source: what you pay with
   const [memo, setMemo] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<{
@@ -39,26 +41,66 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
     message: string;
   }>({ type: "idle", message: "" });
 
+  // Swap quote state
+  const [swapQuote, setSwapQuote] = useState<{
+    debitAmount: string;
+    rate: number;
+    summary: string;
+  } | null>(null);
+  const [isLoadingQuote, setIsLoadingQuote] = useState(false);
+
+  const isCrossCurrency = sourceCurrency !== currency;
+
   // Fetch supported tokens on mount
   useEffect(() => {
     const fetchTokens = async () => {
       try {
         const { tokens } = await api.getSupportedTokens();
         setSupportedTokens(tokens);
-        // Set first token as default if current currency not in list
         if (!tokens.includes(currency)) {
           setCurrency(tokens[0] || "USDm");
         }
+        if (!tokens.includes(sourceCurrency)) {
+          setSourceCurrency(tokens[0] || "USDm");
+        }
       } catch (error) {
         console.error("Failed to fetch tokens:", error);
-        // Keep fallback tokens
       }
     };
     fetchTokens();
   }, []);
 
+  // Fetch swap quote when cross-currency params change
+  const fetchQuote = useCallback(async () => {
+    if (!isCrossCurrency || !amount || parseFloat(amount) <= 0) {
+      setSwapQuote(null);
+      return;
+    }
+
+    setIsLoadingQuote(true);
+    try {
+      // Use fixedOutput mode: we want the recipient to get exactly `amount` (e.g. 1000 NGNm)
+      // and we want to know how much `sourceCurrency` (e.g. USDm) we need to pay.
+      const quote = await api.getSwapQuote(sourceCurrency, currency, amount, "fixedOutput");
+      setSwapQuote({
+        debitAmount: quote.debitAmount,
+        rate: quote.rate,
+        summary: quote.summary,
+      });
+    } catch (error) {
+      console.error("Quote failed:", error);
+      setSwapQuote(null);
+    } finally {
+      setIsLoadingQuote(false);
+    }
+  }, [sourceCurrency, currency, amount, isCrossCurrency]);
+
+  useEffect(() => {
+    const timer = setTimeout(fetchQuote, 500); // Debounce
+    return () => clearTimeout(timer);
+  }, [fetchQuote]);
+
   const validateAddress = (addr: string): boolean => {
-    // Ethereum address validation
     return /^0x[a-fA-F0-9]{40}$/.test(addr);
   };
 
@@ -95,7 +137,7 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
     setIsProcessing(true);
 
     try {
-      // Step 1: Parse intent directly (bypass AI)
+      // Step 1: Parse intent with cross-currency support
       setStatus({ type: "parsing", message: "Preparing transaction..." });
 
       const parseResponse = await api.parseIntentDirect(
@@ -104,16 +146,19 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
           recipient: recipientAddress,
           amount: amountNum,
           currency: currency,
+          sourceCurrency: isCrossCurrency ? sourceCurrency : undefined,
           memo: memo || undefined,
           confidence: 1.0,
         },
         address,
       );
 
-      // Step 2: Sign and send transaction via MiniPay
+      // Step 2: Sign and send via MiniPay
       setStatus({
         type: "signing",
-        message: "Please sign the transaction in MiniPay...",
+        message: isCrossCurrency
+          ? `Please sign: ${swapQuote?.debitAmount || "..."} ${sourceCurrency} → ${amountNum} ${currency}`
+          : "Please sign the transaction in MiniPay...",
       });
 
       sendTransaction(
@@ -125,7 +170,6 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
         {
           onSuccess: async (hash) => {
             try {
-              // Step 3: Record transaction
               setStatus({
                 type: "confirming",
                 message: "Recording transaction...",
@@ -139,22 +183,23 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
                 currency: currency,
               });
 
+              const successMsg = isCrossCurrency
+                ? `✅ Sent ${amountNum} ${currency} (debited ${swapQuote?.debitAmount || "?"} ${sourceCurrency})`
+                : `✅ Sent ${amountNum} ${currency}`;
+
               setStatus({
                 type: "success",
-                message: `✅ Successfully sent ${amountNum} ${currency} to ${recipientAddress.slice(
-                  0,
-                  6,
-                )}...${recipientAddress.slice(-4)}`,
+                message: `${successMsg} to ${recipientAddress.slice(0, 6)}...${recipientAddress.slice(-4)}`,
               });
 
               onSuccess?.(hash);
               setIsProcessing(false);
 
-              // Reset form after 3 seconds
               setTimeout(() => {
                 setRecipientAddress("");
                 setAmount("");
                 setMemo("");
+                setSwapQuote(null);
                 setStatus({ type: "idle", message: "" });
               }, 3000);
             } catch (error) {
@@ -189,7 +234,7 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 max-w-md mx-auto">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">
-        Send Tokens (Direct)
+        Send Tokens
       </h2>
 
       {/* Wallet Status */}
@@ -203,7 +248,7 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Recipient Address Input */}
+        {/* Recipient Address */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <Wallet className="inline h-4 w-4 mr-1" />
@@ -220,7 +265,7 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
           />
         </div>
 
-        {/* Amount Input */}
+        {/* Amount */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <DollarSign className="inline h-4 w-4 mr-1" />
@@ -239,19 +284,49 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
           />
         </div>
 
-        {/* Currency Selection */}
+        {/* Pay With (Source Currency) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Currency
+            💳 Pay With
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {supportedTokens.map((c) => (
               <button
-                key={c}
+                key={`src-${c}`}
+                type="button"
+                onClick={() => setSourceCurrency(c)}
+                disabled={isProcessing}
+                className={`py-2 px-2 rounded-lg text-xs font-medium transition-all ${sourceCurrency === c
+                  ? "bg-blue-500 text-white shadow-md"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Swap Arrow (only if cross-currency) */}
+        {isCrossCurrency && (
+          <div className="flex justify-center">
+            <ArrowRightLeft className="h-5 w-5 text-blue-500 animate-pulse" />
+          </div>
+        )}
+
+        {/* Send As (Destination Currency) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            📤 Recipient Gets
+          </label>
+          <div className="grid grid-cols-4 gap-1.5">
+            {supportedTokens.map((c) => (
+              <button
+                key={`dst-${c}`}
                 type="button"
                 onClick={() => setCurrency(c)}
                 disabled={isProcessing}
-                className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                className={`py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                   currency === c
                     ? "bg-yellow-400 text-gray-900 shadow-md"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -263,7 +338,32 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
           </div>
         </div>
 
-        {/* Memo Input (Optional) */}
+        {/* Swap Quote Display */}
+        {isCrossCurrency && (
+          <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
+            {isLoadingQuote ? (
+              <div className="flex items-center gap-2 text-blue-600 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Getting exchange rate...
+              </div>
+            ) : swapQuote ? (
+              <div className="text-sm">
+                <div className="font-medium text-blue-900">
+                  {swapQuote.summary}
+                </div>
+                <div className="text-blue-600 text-xs mt-1">
+                  Rate: 1 {currency} ≈ {swapQuote.rate.toFixed(4)} {sourceCurrency}
+                </div>
+              </div>
+            ) : amount ? (
+              <div className="text-sm text-blue-600">
+                Enter amount to see exchange rate
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Memo */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Memo (Optional)
@@ -314,7 +414,9 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
           ) : (
             <>
               <Send className="h-5 w-5" />
-              Send {amount || "0"} {currency}
+                {isCrossCurrency
+                  ? `Send ${amount || "0"} ${currency} (pay ${swapQuote?.debitAmount || "?"} ${sourceCurrency})`
+                  : `Send ${amount || "0"} ${currency}`}
             </>
           )}
         </button>

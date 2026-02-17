@@ -104,6 +104,77 @@ export class MentoService implements OnModuleInit {
   }
 
   /**
+   * Get a quote for how much input is needed for a fixed output amount (swapOut)
+   */
+  async getAmountInQuote(
+    fromToken: keyof typeof CELO_TOKENS,
+    toToken: keyof typeof CELO_TOKENS,
+    amountOut: string,
+  ) {
+    const fromAddress = CELO_TOKENS[fromToken];
+    const toAddress = CELO_TOKENS[toToken];
+
+    if (fromAddress === 'native' || toAddress === 'native') {
+      throw new Error('Native CELO swaps not fully supported for this operation.');
+    }
+
+    try {
+      const amountOutWei = utils.parseUnits(amountOut, 18);
+
+      const amountInWei = await this.mento.getAmountIn(
+        fromAddress,
+        toAddress,
+        amountOutWei
+      );
+
+      const amountIn = utils.formatUnits(amountInWei, 18);
+
+      // Calculate derived price (rate)
+      const price = parseFloat(amountOut) / parseFloat(amountIn);
+
+      return {
+        amountIn,
+        price,
+        source: 'mento-sdk-v1',
+        timestamp: Date.now(),
+      };
+    } catch (error) {
+      this.logger.error(`Failed to fetch Mento amountIn quote: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Build a swap transaction data using Mento SDK
+   */
+  async buildSwapTransaction(
+    fromToken: keyof typeof CELO_TOKENS,
+    toToken: keyof typeof CELO_TOKENS,
+    amountOut: string,
+    maxAmountIn: string,
+  ) {
+    const fromAddress = CELO_TOKENS[fromToken];
+    const toAddress = CELO_TOKENS[toToken];
+
+    const amountOutWei = utils.parseUnits(amountOut, 18);
+    const maxAmountInWei = utils.parseUnits(maxAmountIn, 18);
+
+    // Standard Mento swapOut (receives into user's wallet)
+    const txObj = await this.mento.swapOut(
+      fromAddress,
+      toAddress,
+      amountOutWei,
+      maxAmountInWei
+    );
+
+    return {
+      to: txObj.to as string,
+      data: txObj.data as string,
+      value: txObj.value ? txObj.value.toString() : '0',
+    };
+  }
+
+  /**
    * Fallback mock quotes (kept for resilience)
    */
   private getMockQuote(from: string, to: string, amount: string) {

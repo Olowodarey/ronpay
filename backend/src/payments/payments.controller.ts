@@ -66,6 +66,22 @@ export class PaymentsController {
   }
 
   /**
+   * Get a Mento swap quote for cross-currency transfers
+   * GET /payments/swap-quote?from=USDm&to=NGNm&amount=1000
+   *
+   * Returns how much source token is needed to send X of destination token
+   */
+  @Get('swap-quote')
+  async getSwapQuote(
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('amount') amount: string,
+    @Query('mode') mode: 'fixedInput' | 'fixedOutput' = 'fixedInput',
+  ) {
+    return this.paymentsService.getSwapQuote(from, to, amount, mode);
+  }
+
+  /**
    * Record a transaction that was signed and broadcasted by MiniPay
    * POST /payments/execute
    *

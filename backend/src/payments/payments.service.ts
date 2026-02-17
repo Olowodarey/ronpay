@@ -171,6 +171,11 @@ export class PaymentsService {
   /**
    * Validate intent fields, resolve recipient, and build the unsigned transaction.
    * Shared by both parsePaymentIntent() and parsePaymentIntentDirect().
+   *
+   * Cross-currency logic:
+   * - If sourceCurrency != currency, get Mento quote and build tx in sourceCurrency
+   * - The recipient gets sourceCurrency tokens (they can swap later)
+   * - Exchange rate info is included in the response
    */
   private async buildTransferResponse(intent: PaymentIntent) {
     if (!intent.recipient) {
@@ -188,13 +193,70 @@ export class PaymentsService {
     }
 
     const recipientAddress = await this.resolveRecipient(intent.recipient);
-    const currency = intent.currency || 'USDm';
+    const destinationCurrency = intent.currency || 'USDm';
+    const sourceCurrency = intent.sourceCurrency || destinationCurrency;
 
-    const transactionData = await this.celoService.buildPaymentTransaction(
-      recipientAddress,
-      intent.amount.toString(),
-      currency as any,
-    );
+    let sendAmount = intent.amount.toString();
+    let exchangeRate: any = null;
+    let transactionData: any = null;
+
+    // Cross-currency: get Mento quote and build tx in source token
+    if (sourceCurrency !== destinationCurrency) {
+      try {
+        // 1. Get exact amount of source token needed for the destination amount (Fixed Output)
+        const quote = await this.mentoService.getAmountInQuote(
+          sourceCurrency as keyof typeof CELO_TOKENS,
+          destinationCurrency as keyof typeof CELO_TOKENS,
+          intent.amount.toString(),
+        );
+        sendAmount = quote.amountIn;
+
+        exchangeRate = {
+          from: sourceCurrency,
+          to: destinationCurrency,
+          rate: quote.price,
+          debitAmount: sendAmount,
+          receiveAmount: intent.amount.toString(),
+          source: quote.source,
+        };
+
+        this.logger.log(
+          `Cross-currency (Swap): Need ${sendAmount} ${sourceCurrency} to get ${intent.amount} ${destinationCurrency}`,
+        );
+
+        // 2. Build the Swap transaction data
+        // For testnet simplicity, we build a direct Swap transaction.
+        // The recipient will receive the swapped tokens in their wallet.
+        // TODO: Use a Router for single-tx SwapAndSend if available.
+        const swapTx = await this.mentoService.buildSwapTransaction(
+          sourceCurrency as keyof typeof CELO_TOKENS,
+          destinationCurrency as keyof typeof CELO_TOKENS,
+          intent.amount.toString(),
+          (parseFloat(sendAmount) * 1.01).toFixed(6), // 1% slippage margin
+        );
+
+        // Update the transaction data to be the swap transaction
+        transactionData = {
+          to: swapTx.to as Address,
+          value: swapTx.value,
+          data: swapTx.data as `0x${string}`,
+          feeCurrency: CELO_TOKENS.USDm,
+        };
+
+      } catch (error) {
+        this.logger.error(`Mento swap building failed: ${error.message}`);
+        throw new BadRequestException(
+          `Cannot build swap for ${sourceCurrency} → ${destinationCurrency}: ${error.message}`,
+        );
+      }
+    } else {
+      // Standard same-currency transfer
+      transactionData = await this.celoService.buildPaymentTransaction(
+        recipientAddress,
+        sendAmount,
+        sourceCurrency as any,
+      );
+    }
 
     // Confirmation flag for amounts above threshold
     const requiresConfirmation = intent.amount > AGENT_CONFIG.confirmationThreshold;
@@ -210,9 +272,12 @@ export class PaymentsService {
         recipient: recipientAddress,
         originalRecipient: intent.recipient,
         amount: intent.amount,
-        currency,
+        currency: destinationCurrency,
+        sourceCurrency,
+        sendAmount,
         memo: intent.memo,
       },
+      ...(exchangeRate && { exchangeRate }),
     };
   }
 
@@ -433,6 +498,63 @@ export class PaymentsService {
     return {
       tokens: this.celoService.getSupportedTokens(),
       addresses: CELO_TOKENS,
+    };
+  }
+
+  /**
+   * Get a Mento swap quote for cross-currency transfers
+   * e.g. "How much USDm do I need to send 1000 NGNm?"
+   */
+  async getSwapQuote(from: string, to: string, amount: string, mode: 'fixedInput' | 'fixedOutput' = 'fixedInput') {
+    if (!from || !to || !amount) {
+      throw new BadRequestException('from, to, and amount are required');
+    }
+
+    if (from === to) {
+      return {
+        from,
+        to,
+        amountIn: amount,
+        amountOut: amount,
+        rate: 1,
+        source: 'direct',
+      };
+    }
+
+    if (mode === 'fixedOutput') {
+      // Fixed Output: specify amount recipient gets, calculate what sender pays (amountIn)
+      const quote = await this.mentoService.getAmountInQuote(
+        from as keyof typeof CELO_TOKENS,
+        to as keyof typeof CELO_TOKENS,
+        amount
+      );
+
+      return {
+        from,
+        to,
+        sendAmount: amount,       // Amount recipient gets (fixed)
+        debitAmount: quote.amountIn, // Amount debited from sender (calculated)
+        rate: quote.price,
+        source: quote.source,
+        summary: `Sending ${amount} ${to} will cost ${parseFloat(quote.amountIn).toFixed(4)} ${from}`,
+      };
+    }
+
+    // Fixed Input (Existing): specify amount sender pays, calculate what recipient gets (amountOut)
+    const quote = await this.mentoService.getSwapQuote(
+      from as keyof typeof CELO_TOKENS,
+      to as keyof typeof CELO_TOKENS,
+      amount,
+    );
+
+    return {
+      from,
+      to,
+      sendAmount: quote.amountOut, // Amount recipient gets (calculated)
+      debitAmount: amount,         // Amount debited from sender (fixed)
+      rate: quote.price,
+      source: quote.source,
+      summary: `Sending ${amount} ${from} will result in ${parseFloat(quote.amountOut).toFixed(4)} ${to}`,
     };
   }
 
