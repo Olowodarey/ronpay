@@ -10,9 +10,11 @@ import { MentoService } from '../blockchain/mento.service';
 import { IdentityService } from '../blockchain/identity.service';
 import { AiService } from '../ai/ai.service';
 import { TransactionsService } from '../transactions/transactions.service';
-import { VtpassService } from '../vtpass/vtpass.service';
+import { NellobytesService } from '../nellobytes/nellobytes.service';
 import { ClaudeService } from '../ai/claude.service';
 import { GeminiService } from '../ai/gemini.service';
+import { RouteOptimizerService } from '../blockchain/route-optimizer.service';
+import { ConversationService } from '../transactions/conversation.service';
 import { BadRequestException } from '@nestjs/common';
 
 describe('PaymentsService Integration', () => {
@@ -21,7 +23,8 @@ describe('PaymentsService Integration', () => {
   let identityService: IdentityService;
   let celoService: CeloService;
   let aiService: AiService;
-  let vtpassService: VtpassService;
+  let routeOptimizerService: RouteOptimizerService;
+  let nellobytesService: NellobytesService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,6 +36,7 @@ describe('PaymentsService Integration', () => {
             isValidAddress: jest.fn((addr) => addr.startsWith('0x')),
             buildPaymentTransaction: jest.fn().mockResolvedValue({ to: 'mocked', value: '100', data: '0x' }),
             waitForTransaction: jest.fn().mockResolvedValue({ status: 'success' }),
+            verifyERC20Transfer: jest.fn().mockResolvedValue(true),
           },
         },
         {
@@ -61,10 +65,9 @@ describe('PaymentsService Integration', () => {
           },
         },
         {
-          provide: VtpassService,
+          provide: NellobytesService,
           useValue: {
-            purchaseProduct: jest.fn().mockResolvedValue({ code: '000' }),
-            validateAirtimeFlow: jest.fn().mockReturnValue({ phone: '08012345678', serviceID: 'airtime-mtn', amount: 1000 }),
+            buyAirtime: jest.fn().mockResolvedValue({ status: 'ORDER_RECEIVED' }),
           },
         },
         {
@@ -79,6 +82,28 @@ describe('PaymentsService Integration', () => {
             parsePaymentIntent: jest.fn(),
           },
         },
+        {
+          provide: RouteOptimizerService,
+          useValue: {
+            findBestRoute: jest.fn().mockResolvedValue({
+              bestRoute: {
+                amountOut: '0.66',
+                price: 1 / 1500,
+                source: 'mock-route',
+                path: ['NGNm', 'USDm'],
+              },
+            }),
+          },
+        },
+        {
+          provide: ConversationService,
+          useValue: {
+            getOrCreateSession: jest.fn().mockResolvedValue('session-123'),
+            addMessage: jest.fn().mockResolvedValue(true),
+            getSessionHistory: jest.fn().mockResolvedValue([]),
+            formatContextForAI: jest.fn().mockReturnValue(''),
+          },
+        },
       ],
     }).compile();
 
@@ -87,7 +112,8 @@ describe('PaymentsService Integration', () => {
     identityService = module.get<IdentityService>(IdentityService);
     celoService = module.get<CeloService>(CeloService);
     aiService = module.get<AiService>(AiService);
-    vtpassService = module.get<VtpassService>(VtpassService);
+    routeOptimizerService = module.get<RouteOptimizerService>(RouteOptimizerService);
+    nellobytesService = module.get<NellobytesService>(NellobytesService);
     process.env.RONPAY_TREASURY_ADDRESS = '0xTreasury';
   });
 
@@ -112,7 +138,7 @@ describe('PaymentsService Integration', () => {
         expect(result.parsedCommand.recipient).toBe('0x742d35Cc6634C0532925a3b844Bc454e4438f44e');
     });
 
-    it('should calculate VTPASS cost using Mento rate', async () => {
+    it('should calculate Airtime cost using Mento rate', async () => {
         // Mock 1000 NGN -> 0.66 cUSD (rate 1500)
       jest.spyOn(aiService, 'parsePaymentIntent').mockResolvedValue({
             action: 'buy_airtime',
@@ -123,16 +149,19 @@ describe('PaymentsService Integration', () => {
             confidence: 0.9,
         } as any);
 
-        const result = await service.parsePaymentIntent({ message: 'Buy 1000 Naira MTN airtime', senderAddress: '0xUser' });
+      const result = await service.parsePaymentIntent({ message: 'Buy 1000 Naira MTN airtime', senderAddress: '0xUser' });
 
-      expect(mentoService.getSwapQuote).toHaveBeenCalledWith('NGNm', 'USDm', '1000');
-        expect((result as any).parsedCommand.amount).toBe(0.66); // From mocked Mento quote
-        expect((result as any).meta.provider).toBe('MTN');
+      expect(routeOptimizerService.findBestRoute).toHaveBeenCalledWith('NGNm', 'USDm', '1000');
+      expect((result as any).parsedCommand.amount).toBe(0.66); // From mocked Route quote
+      // Provider is now NELLOBYTES for buy_airtime
+      expect((result as any).meta.provider).toBe('NELLOBYTES');
+      // Biller is preserved
+      expect((result as any).meta.biller).toBe('MTN');
     });
   });
 
   describe('recordTransaction', () => {
-      it('should trigger VTPASS purchase on successful treasury deposit', async () => {
+    it('should trigger Nellobytes purchase on successful treasury deposit', async () => {
           process.env.RONPAY_TREASURY_ADDRESS = '0xTreasury';
           const validTx = {
             txHash: '0x' + '1'.repeat(64),
@@ -141,8 +170,9 @@ describe('PaymentsService Integration', () => {
             amount: '0.66',
             currency: 'cUSD',
             metadata: {
-              provider: 'VTPASS',
+              provider: 'NELLOBYTES',
               recipient: '08012345678',
+              biller: 'MTN',
               originalAmountNgn: 1000,
               variation_code: null,
             },
@@ -150,7 +180,16 @@ describe('PaymentsService Integration', () => {
 
           await service.recordTransaction(validTx as any);
 
-          expect(jest.spyOn(service['transactionsService'], 'create')).toHaveBeenCalled();
+      // Wait for promises to resolve (recordTransaction does background work)
+      // We can't easily wait for the background promise in this setup without changing the service method
+      // But we can check if it was called if we mock properly.
+      // In this test setup, recordTransaction waits for waitForTransaction which is mocked to resolve immediately.
+      // So next tick should have called nellobytesService.buyAirtime
+
+      // Allow internal promises to settle
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(nellobytesService.buyAirtime).toHaveBeenCalled();
       });
   });
 });

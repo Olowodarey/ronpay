@@ -12,7 +12,7 @@ import { useSendTransaction } from "wagmi";
 import { api } from "@/lib/api";
 import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
 
-const PROVIDERS = ["MTN", "Airtel", "Glo", "9mobile"] as const;
+const PROVIDERS = ["Auto-detect", "MTN", "Airtel", "Glo", "9mobile"] as const;
 type Provider = (typeof PROVIDERS)[number];
 
 interface AirtimePurchaseFormProps {
@@ -29,7 +29,7 @@ export function AirtimePurchaseForm({
 
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
-  const [provider, setProvider] = useState<Provider>("MTN");
+  const [provider, setProvider] = useState<Provider>("Auto-detect");
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<{
     type: "idle" | "parsing" | "signing" | "purchasing" | "success" | "error";
@@ -87,7 +87,7 @@ export function AirtimePurchaseForm({
           recipient: phoneNumber,
           amount: amountNum,
           currency: "NGN",
-          biller: provider,
+          biller: provider === "Auto-detect" ? undefined : provider,
           confidence: 1.0,
         },
         address,
@@ -118,7 +118,7 @@ export function AirtimePurchaseForm({
                 txHash: hash,
                 phoneNumber: phoneNumber,
                 amount: amountNum,
-                provider: provider,
+                provider: provider === "Auto-detect" ? undefined : provider,
                 walletAddress: address,
               });
 
@@ -276,7 +276,8 @@ export function AirtimePurchaseForm({
               Processing...
             </>
           ) : (
-            `Purchase ${amount || "0"} NGN ${provider} Airtime`
+              `Purchase ${amount || "0"} NGN ${provider === "Auto-detect" ? "" : provider
+              } Airtime`
           )}
         </button>
       </form>

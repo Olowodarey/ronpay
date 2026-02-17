@@ -7,7 +7,6 @@ import { PaymentsModule } from '../payments/payments.module';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { FeesModule } from '../fees/fees.module';
-import { VtpassModule } from '../vtpass/vtpass.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 
 @Module({
@@ -19,7 +18,6 @@ import { TransactionsModule } from '../transactions/transactions.module';
     BlockchainModule,
     NotificationsModule,
     FeesModule,
-    VtpassModule,
     TransactionsModule,
   ],
   providers: [SchedulerService, PaymentProcessor],

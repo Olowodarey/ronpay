@@ -6,7 +6,6 @@ import { MentoService } from '../blockchain/mento.service';
 import { CeloService } from '../blockchain/celo.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FeesService } from '../fees/fees.service';
-import { VtpassService } from '../vtpass/vtpass.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { ScheduleMetadata, DEFAULT_RETRY_CONFIG } from './interfaces/schedule.interface';
 import { SupportedLanguage } from '../ai/language-detection';
@@ -21,7 +20,6 @@ export class PaymentProcessor {
     private readonly celoService: CeloService,
     private readonly notificationsService: NotificationsService,
     private readonly feesService: FeesService,
-    private readonly vtpassService: VtpassService,
     private readonly transactionsService: TransactionsService,
   ) { }
 
@@ -114,79 +112,80 @@ export class PaymentProcessor {
     }
   }
 
-  @Process('recurring-bill')
-  async handleRecurringBill(job: Job) {
-    this.logger.log(`Processing recurring bill: ${job.id}`);
-    const data = job.data;
-    const metadata: ScheduleMetadata = data.metadata || this.getDefaultMetadata(job.id?.toString() || '');
-    const phone = data.phone;
+  // @Process('recurring-bill')
+  // async handleRecurringBill(job: Job) {
+  //   this.logger.log(`Processing recurring bill: ${job.id}`);
+  //   const data = job.data;
+  //   const metadata: ScheduleMetadata = data.metadata || this.getDefaultMetadata(job.id?.toString() || '');
+  //   const phone = data.phone;
 
-    try {
-      // 1. Check if paused
-      if (metadata.isPaused) {
-        if (metadata.pausedUntil && new Date() > new Date(metadata.pausedUntil)) {
-          metadata.isPaused = false;
-          await job.update({ ...data, metadata });
-        } else {
-          this.logger.log(`Bill schedule ${job.id} is paused`);
-          return { status: 'paused' };
-        }
-      }
+  //   try {
+  //     // 1. Check if paused
+  //     if (metadata.isPaused) {
+  //       if (metadata.pausedUntil && new Date() > new Date(metadata.pausedUntil)) {
+  //         metadata.isPaused = false;
+  //         await job.update({ ...data, metadata });
+  //       } else {
+  //         this.logger.log(`Bill schedule ${job.id} is paused`);
+  //         return { status: 'paused' };
+  //       }
+  //     }
 
-      // 2. Calculate cost in stable tokens
-      let costInToken = data.amount;
-      try {
-        if (data.amount > 0) {
-          const quote = await this.mentoService.getSwapQuote('NGNm', 'USDm', data.amount.toString());
-          costInToken = parseFloat(quote.amountOut);
-        }
-      } catch (e) {
-        this.logger.error('Failed to calculate bill cost', e);
-      }
+  //     // 2. Calculate cost in stable tokens
+  //     let costInToken = data.amount;
+  //     try {
+  //       if (data.amount > 0) {
+  //         const quote = await this.mentoService.getSwapQuote('NGNm', 'USDm', data.amount.toString());
+  //         costInToken = parseFloat(quote.amountOut);
+  //       }
+  //     } catch (e) {
+  //       this.logger.error('Failed to calculate bill cost', e);
+  //     }
 
-      // 3. Check balance
-      const hasBalance = await this.checkBalance(data.walletAddress, costInToken, 'USDm');
+  //     // 3. Check balance
+  //     const hasBalance = await this.checkBalance(data.walletAddress, costInToken, 'USDm');
 
-      if (!hasBalance) {
-        this.logger.warn(`Insufficient balance for bill ${job.id}`);
-        await this.handleInsufficientBalance(job, data, metadata, phone);
-        return { status: 'insufficient_balance' };
-      }
+  //     if (!hasBalance) {
+  //       this.logger.warn(`Insufficient balance for bill ${job.id}`);
+  //       await this.handleInsufficientBalance(job, data, metadata, phone);
+  //       return { status: 'insufficient_balance' };
+  //     }
 
-      // 4. Execute bill payment via VTPASS API
-      this.logger.log(
-        `Executing recurring bill: ${data.serviceID} for ${data.billersCode}`,
-      );
+  //     // 4. Execute bill payment via VTPASS API
+  //     this.logger.log(
+  //       `Executing recurring bill: ${data.serviceID} for ${data.billersCode}`,
+  //     );
 
-      const vtpassResult = await this.vtpassService.purchaseProduct({
-        serviceID: data.serviceID,
-        billersCode: data.billersCode,
-        variation_code: data.variation_code,
-        amount: data.amount,
-        phone: phone,
-        walletAddress: data.walletAddress,
-      });
+  //     // NOTE: VTPASS Service removed. Recurring bills temporarily disabled.
+  //     // const vtpassResult = await this.vtpassService.purchaseProduct({
+  //     //   serviceID: data.serviceID,
+  //     //   billersCode: data.billersCode,
+  //     //   variation_code: data.variation_code,
+  //     //   amount: data.amount,
+  //     //   phone: phone,
+  //     //   walletAddress: data.walletAddress,
+  //     // });
 
-      // 5. Send notification
-      const language: SupportedLanguage = (metadata.language as SupportedLanguage) || 'en';
+  //     // 5. Send notification
+  //     const language: SupportedLanguage = (metadata.language as SupportedLanguage) || 'en';
 
-      await this.notificationsService.sendNotification({
-        toPhone: phone,
-        message: `✅ Bill payment completed: ${data.serviceID} - ${data.amount} NGN`,
-        channel: 'sms',
-      });
+  //     await this.notificationsService.sendNotification({
+  //       toPhone: phone,
+  //       message: `✅ Bill payment completed: ${data.serviceID} - ${data.amount} NGN`,
+  //       channel: 'sms',
+  //     });
 
-      metadata.retryCount = 0;
-      metadata.lastAttempt = new Date();
-      await job.update({ ...data, metadata });
+  //     metadata.retryCount = 0;
+  //     metadata.lastAttempt = new Date();
+  //     await job.update({ ...data, metadata });
 
-      return { status: 'success', scheduleId: job.id };
-    } catch (error) {
-      this.logger.error(`Failed to execute recurring bill ${job.id}: ${error.message}`);
-      await this.handleFailure(job, data, metadata, error.message, phone);
-      return { status: 'failed', error: error.message };
-    }
-  }
+  //     return { status: 'success', scheduleId: job.id };
+  //   } catch (error) {
+  //     this.logger.error(`Failed to execute recurring bill ${job.id}: ${error.message}`);
+  //     await this.handleFailure(job, data, metadata, error.message, phone);
+  //     return { status: 'failed', error: error.message };
+  //   }
+  // }
 
   /**
    * Check if wallet has sufficient balance

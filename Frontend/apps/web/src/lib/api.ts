@@ -144,7 +144,7 @@ class ApiService {
     txHash: string;
     phoneNumber: string;
     amount: number;
-    provider: string;
+    provider?: string;
     walletAddress: string;
     memo?: string;
   }): Promise<any> {

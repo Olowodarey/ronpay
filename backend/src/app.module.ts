@@ -11,13 +11,13 @@ import { BlockchainModule } from './blockchain/blockchain.module';
 import { AiModule } from './ai/ai.module';
 import { PaymentsModule } from './payments/payments.module';
 import { TransactionsModule } from './transactions/transactions.module';
-import { VtpassModule } from './vtpass/vtpass.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { FeesModule } from './fees/fees.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
 import { A2aModule } from './a2a/a2a.module';
 import { McpToolsProvider } from './mcp/mcp-tools.provider';
+import { NellobytesModule } from './nellobytes/nellobytes.module';
 
 @Module({
   imports: [
@@ -65,7 +65,7 @@ import { McpToolsProvider } from './mcp/mcp-tools.provider';
     AiModule,
     PaymentsModule,
     TransactionsModule,
-    VtpassModule,
+    NellobytesModule,
     SchedulerModule,
     FeesModule,
     NotificationsModule,

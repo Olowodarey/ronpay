@@ -8,16 +8,47 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 import { PaymentsService } from './payments.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { ReceiptsService } from '../transactions/receipts.service';
-import { VtpassService } from '../vtpass/vtpass.service';
 import {
   NaturalLanguagePaymentDto,
   ExecutePaymentDto,
 } from './dto/natural-language-payment.dto';
 import { PaymentIntent } from '../types';
-import { PurchaseAirtimeDto } from '../vtpass/dto/vtpass-airtime.dto';
+
+export class PurchaseAirtimeDto {
+  @IsString()
+  txHash: string;
+
+  @IsString()
+  phoneNumber: string;
+
+  @IsNumber()
+  amount: number;
+
+  @IsOptional()
+  @IsString()
+  provider?: string;
+
+  @IsOptional()
+  @IsString()
+  walletAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  memo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  skipVerification?: boolean;
+}
 
 @Controller('payments')
 export class PaymentsController {
@@ -25,7 +56,6 @@ export class PaymentsController {
     private paymentsService: PaymentsService,
     private transactionsService: TransactionsService,
     private receiptsService: ReceiptsService,
-    private vtpassService: VtpassService,
   ) {}
 
   /**
@@ -106,7 +136,7 @@ export class PaymentsController {
    * 2. Gets unsigned transaction to pay treasury in stablecoin
    * 3. MiniPay signs and broadcasts transaction to Celo
    * 4. Frontend gets txHash and calls this endpoint
-   * 5. Backend triggers VTPASS airtime purchase
+   * 5. Backend triggers Nellobytes airtime purchase
    * 6. Airtime delivered to phone number
    */
   @Post('purchase-airtime')

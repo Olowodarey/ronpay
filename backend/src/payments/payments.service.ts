@@ -13,7 +13,7 @@ import { AiService } from '../ai/ai.service';
 import { ClaudeService } from '../ai/claude.service';
 import { GeminiService } from '../ai/gemini.service';
 import { TransactionsService } from '../transactions/transactions.service';
-import { VtpassService } from '../vtpass/vtpass.service';
+import { NellobytesService } from '../nellobytes/nellobytes.service';
 import { ConversationService } from '../transactions/conversation.service';
 import {
   NaturalLanguagePaymentDto,
@@ -21,7 +21,6 @@ import {
 } from './dto/natural-language-payment.dto';
 import { Address } from 'viem';
 import { PaymentIntent } from '../types';
-import { PurchaseAirtimeDto } from '../vtpass/dto/vtpass-airtime.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -33,7 +32,7 @@ export class PaymentsService {
     private transactionsService: TransactionsService,
     private mentoService: MentoService,
     private identityService: IdentityService,
-    private vtpassService: VtpassService,
+    private nellobytesService: NellobytesService,
     private claudeService: ClaudeService,
     private geminiService: GeminiService,
     private routeOptimizer: RouteOptimizerService,
@@ -121,9 +120,9 @@ export class PaymentsService {
       intent,
     );
 
-    // VTPASS Flows (Airtime, Data, Bills)
-    if (['buy_airtime', 'buy_data', 'pay_bill'].includes(intent.action)) {
-      return { sessionId, ...await this.handleVtpassIntent(intent) };
+    // Airtime Flow
+    if (['buy_airtime'].includes(intent.action)) {
+      return { sessionId, ...await this.handleAirtimeIntent(intent) };
     }
 
     // Standard Crypto Transfer Flow
@@ -151,9 +150,9 @@ export class PaymentsService {
       );
     }
 
-    // VTPASS Flows
-    if (['buy_airtime', 'buy_data', 'pay_bill'].includes(intent.action)) {
-      return this.handleVtpassIntent(intent);
+    // Airtime Flow
+    if (['buy_airtime'].includes(intent.action)) {
+      return this.handleAirtimeIntent(intent);
     }
 
     // Standard Crypto Transfer Flow
@@ -321,14 +320,14 @@ export class PaymentsService {
   }
 
   // ────────────────────────────────────────────────────────────
-  // VTPASS Flows (Airtime, Bills)
+  // Airtime Flow
   // ────────────────────────────────────────────────────────────
 
   /**
-   * Handle VTPASS intents (Airtime, Bills)
-   * Flow: User pays USDm to Treasury → Backend detects tx → Backend triggers VTPASS
+   * Handle Airtime intents
+   * Flow: User pays USDm to Treasury → Backend detects tx → Backend triggers Nellobytes
    */
-  private async handleVtpassIntent(intent: PaymentIntent) {
+  private async handleAirtimeIntent(intent: PaymentIntent) {
     const amountInNgn = intent.amount;
 
     if (!amountInNgn) {
@@ -354,7 +353,7 @@ export class PaymentsService {
         'USDm',
         amountInNgn.toString(),
       );
-
+      
       amountInUsdm = parseFloat(bestRoute.bestRoute.amountOut).toFixed(2);
       exchangeRate = 1 / bestRoute.bestRoute.price;
       routeUsed = bestRoute.bestRoute.source;
@@ -394,7 +393,9 @@ export class PaymentsService {
       'USDm',
     );
 
-    this.logger.log(`VTPASS tx built: ${amountInUsdm} USDm → treasury`);
+    this.logger.log(`Airtime tx built: ${amountInUsdm} USDm → treasury`);
+
+    const provider = 'NELLOBYTES';
 
     return {
       intent,
@@ -405,7 +406,8 @@ export class PaymentsService {
       },
       meta: {
         serviceType: intent.action,
-        provider: intent.biller || intent.provider || 'VTPASS',
+        provider: provider,
+        biller: intent.biller || intent.provider,
         recipient: intent.recipient,
         originalAmountNgn: amountInNgn,
         exchangeRate,
@@ -462,10 +464,12 @@ export class PaymentsService {
           const isToTreasury =
             dto.toAddress.toLowerCase() === treasuryAddress?.toLowerCase();
 
+          this.logger.debug('dto.metadata.provider', dto.metadata.provider);
+
           if (
             isToTreasury &&
             dto.metadata &&
-            dto.metadata.provider === 'VTPASS'
+            (dto.metadata.provider === 'NELLOBYTES')
           ) {
             this.logger.log(`Verifying token receipt for treasury: ${dto.txHash}`);
 
@@ -482,20 +486,20 @@ export class PaymentsService {
               return;
             }
 
-            this.logger.log(`Token receipt verified. Triggering VTPASS: ${dto.txHash}`);
+            this.logger.log(`Token receipt verified. Triggering Provider: ${dto.metadata.provider} for ${dto.txHash}`);
             try {
-              await this.vtpassService.purchaseProduct({
-                serviceID: dto.serviceId || 'airtime',
-                billersCode: dto.metadata.recipient,
-                variation_code: dto.metadata.variation_code,
+              // Wait, if provider is set to NELLOBYTES, then biller stores the network.
+
+              await this.nellobytesService.buyAirtime({
+                mobile_network: dto.metadata.biller || dto.metadata.recipient || '', // Use biller or fallback to auto-detect
                 amount: dto.metadata.originalAmountNgn || 100,
-                phone: dto.metadata.recipient,
-                walletAddress: dto.fromAddress,
+                mobile_number: dto.metadata.recipient,
                 request_id: dto.txHash,
               });
+
               await this.transactionsService.updateStatus(dto.txHash, 'success_delivered');
             } catch (err) {
-              this.logger.error(`VTPASS execution failed after payment: ${err.message}`, err.stack);
+              this.logger.error(`Service execution failed after payment: ${err.message}`, err.stack);
               await this.transactionsService.updateStatus(dto.txHash, 'failed_service_error');
             }
           }
@@ -602,21 +606,20 @@ export class PaymentsService {
   // ────────────────────────────────────────────────────────────
 
   /**
-   * Complete VTPASS airtime purchase flow
+   * Complete Airtime purchase flow
    * Called after user pays treasury on blockchain
    *
    * Flow:
    * 1. Verify blockchain transaction
-   * 2. Validate airtime parameters
-   * 3. Trigger VTPASS API to purchase airtime
-   * 4. Track transaction in local database
+   * 2. Trigger Nellobytes API to purchase airtime
+   * 3. Track transaction in local database
    */
   async purchaseAirtime(dto: {
     txHash: string;
     phoneNumber: string;
     amount: number;
-    provider: string;
-    walletAddress: string;
+    provider?: string;
+    walletAddress?: string;
     memo?: string;
     skipVerification?: boolean;
   }) {
@@ -624,15 +627,13 @@ export class PaymentsService {
       txHash: dto.txHash,
       phoneNumber: dto.phoneNumber,
       amount: dto.amount,
-      provider: dto.provider,
+      provider: dto.provider || 'AUTO_DETECT',
     })}`);
 
     // 1. Validate parameters
-    const { phone, serviceID, amount } = this.vtpassService.validateAirtimeFlow({
-      recipient: dto.phoneNumber,
-      amount: dto.amount,
-      biller: dto.provider,
-    });
+    if (!dto.phoneNumber || !dto.amount) {
+      throw new BadRequestException('Missing required fields: phoneNumber, amount');
+    }
 
     const isDev = process.env.NODE_ENV !== 'production';
     const skipVerification = isDev && (dto as any).skipVerification === true;
@@ -676,32 +677,30 @@ export class PaymentsService {
       this.logger.log('Skipping verification for direct test call');
     }
 
-    // 2. Call VTPASS to purchase airtime
+    // 2. Call Service to purchase airtime
     try {
-      const response = await this.vtpassService.purchaseProduct({
-        serviceID,
-        billersCode: phone,
-        amount,
-        phone,
-        walletAddress: dto.walletAddress,
+      // Use Nellobytes for airtime
+      const response = await this.nellobytesService.buyAirtime({
+        mobile_network: dto.provider || '', // Pass empty string to trigger auto-detection if provider is missing
+        amount: dto.amount,
+        mobile_number: dto.phoneNumber,
+        request_id: dto.txHash,
       });
 
-      const transactionStatus =
-        response.content?.transactions?.status || 'pending';
+      const transactionStatus = response.status === 'ORDER_COMPLETED' || response.status === 'ORDER_RECEIVED' ? 'delivered' : 'pending';
 
       return {
         success: transactionStatus === 'delivered',
-        message: response.response_description || 'Airtime purchase processing',
-        vtpassTransactionId:
-          response.content?.transactions?.transactionId || response.requestId,
-        localTxHash: response.localTxHash,
+        message: response.status || 'Airtime purchase processing',
+        vtpassTransactionId: response.orderid, // Mapping Nellobytes orderid to this field for compatibility
+        localTxHash: dto.txHash,
         blockchainTxHash: dto.txHash,
-        phoneNumber: phone,
-        provider: dto.provider,
-        amount,
+        phoneNumber: dto.phoneNumber,
+        provider: dto.provider || response.mobilenetwork || 'AUTO_DETECT',
+        amount: dto.amount,
         currency: 'NGN',
         status: transactionStatus,
-        transactionDate: new Date(response.transaction_date || Date.now()),
+        transactionDate: new Date(),
         estimatedDeliveryTime:
           transactionStatus === 'delivered'
             ? 'Airtime delivered successfully'
