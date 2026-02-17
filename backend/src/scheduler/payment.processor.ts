@@ -6,6 +6,8 @@ import { MentoService } from '../blockchain/mento.service';
 import { CeloService } from '../blockchain/celo.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FeesService } from '../fees/fees.service';
+import { VtpassService } from '../vtpass/vtpass.service';
+import { TransactionsService } from '../transactions/transactions.service';
 import { ScheduleMetadata, DEFAULT_RETRY_CONFIG } from './interfaces/schedule.interface';
 import { SupportedLanguage } from '../ai/language-detection';
 
@@ -19,6 +21,8 @@ export class PaymentProcessor {
     private readonly celoService: CeloService,
     private readonly notificationsService: NotificationsService,
     private readonly feesService: FeesService,
+    private readonly vtpassService: VtpassService,
+    private readonly transactionsService: TransactionsService,
   ) { }
 
   @Process('recurring-payment')
@@ -51,11 +55,38 @@ export class PaymentProcessor {
         return { status: 'insufficient_balance', retryCount: metadata.retryCount };
       }
 
-      // 3. Execute payment (in real implementation, this would call blockchain)
-      this.logger.log(`[MOCK] Executing payment: ${data.amount} ${data.currency} to ${data.recipient}`);
+      // 3. Execute on-chain transfer via backend signing wallet
+      if (!this.celoService.canSign) {
+        throw new Error(
+          'Backend signing wallet not configured. Set SCHEDULER_PRIVATE_KEY.',
+        );
+      }
 
-      // Mock execution - in production, integrate with actual payment flow
-      const txHash = `0x${Math.random().toString(16).slice(2)}`;
+      this.logger.log(
+        `Executing recurring payment: ${data.amount} ${data.currency} to ${data.recipient}`,
+      );
+
+      const { txHash, status } = await this.celoService.sendERC20Transfer(
+        data.recipient as `0x${string}`,
+        data.amount.toString(),
+        data.currency || 'USDm',
+      );
+
+      if (status !== 'success') {
+        throw new Error(`Transaction reverted: ${txHash}`);
+      }
+
+      // 3b. Record transaction in DB
+      await this.transactionsService.create({
+        fromAddress: this.celoService.signerAddress!,
+        toAddress: data.recipient,
+        amount: data.amount,
+        currency: data.currency || 'USDm',
+        txHash,
+        status: 'success',
+        type: 'recurring_payment',
+        memo: `Scheduled payment ${job.id}`,
+      });
 
       // 4. Send success notification
       await this.sendSuccessNotification(data, txHash, metadata, phone);
@@ -122,8 +153,19 @@ export class PaymentProcessor {
         return { status: 'insufficient_balance' };
       }
 
-      // 4. Execute bill payment
-      this.logger.log(`[MOCK] Executing bill payment: ${data.serviceID} for ${data.billersCode}`);
+      // 4. Execute bill payment via VTPASS API
+      this.logger.log(
+        `Executing recurring bill: ${data.serviceID} for ${data.billersCode}`,
+      );
+
+      const vtpassResult = await this.vtpassService.purchaseProduct({
+        serviceID: data.serviceID,
+        billersCode: data.billersCode,
+        variation_code: data.variation_code,
+        amount: data.amount,
+        phone: phone,
+        walletAddress: data.walletAddress,
+      });
 
       // 5. Send notification
       const language: SupportedLanguage = (metadata.language as SupportedLanguage) || 'en';

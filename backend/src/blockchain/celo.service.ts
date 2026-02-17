@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   createPublicClient,
+  createWalletClient,
   http,
   parseUnits,
   formatUnits,
@@ -8,6 +9,7 @@ import {
   encodeFunctionData,
 } from 'viem';
 import { celo } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
 import { ERC20_ABI } from '../abis/erc20';
 
 // Celo token addresses on Mainnet
@@ -35,14 +37,34 @@ export const CELO_TOKENS = {
 } as const;
 
 @Injectable()
-export class CeloService {
-  private publicClient;
+export class CeloService implements OnModuleInit {
+  private readonly logger = new Logger(CeloService.name);
+  private publicClient: any;
+  private walletClient: any;
+  private backendAccount: ReturnType<typeof privateKeyToAccount> | null = null;
 
   constructor() {
     this.publicClient = createPublicClient({
       chain: celo,
       transport: http(process.env.CELO_RPC_URL || 'https://forno.celo.org'),
     });
+  }
+
+  onModuleInit() {
+    const schedulerKey = process.env.SCHEDULER_PRIVATE_KEY;
+    if (schedulerKey) {
+      this.backendAccount = privateKeyToAccount(schedulerKey as `0x${string}`);
+      this.walletClient = createWalletClient({
+        account: this.backendAccount,
+        chain: celo,
+        transport: http(process.env.CELO_RPC_URL || 'https://forno.celo.org'),
+      });
+      this.logger.log(`Backend signing wallet initialised: ${this.backendAccount.address}`);
+    } else {
+      this.logger.warn(
+        'SCHEDULER_PRIVATE_KEY not set — scheduled payments will fail. Set this env var for production.',
+      );
+    }
   }
 
   /**
@@ -224,5 +246,89 @@ export class CeloService {
    */
   isValidAddress(address: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Backend Wallet — Signs & broadcasts for scheduled payments
+  // ────────────────────────────────────────────────────────────
+
+  /**
+   * Whether the backend wallet is available for signing.
+   */
+  get canSign(): boolean {
+    return this.backendAccount !== null && this.walletClient !== null;
+  }
+
+  /**
+   * Get the backend wallet address
+   */
+  get signerAddress(): Address | null {
+    return this.backendAccount?.address || null;
+  }
+
+  /**
+   * Send an ERC20 transfer signed by the backend wallet.
+   * Used for scheduled/recurring payments where there is no MiniPay to sign.
+   *
+   * Requires SCHEDULER_PRIVATE_KEY env var.
+   * The wallet must hold sufficient token balance + gas.
+   */
+  async sendERC20Transfer(
+    to: Address,
+    amount: string,
+    token: keyof typeof CELO_TOKENS = 'USDm',
+  ): Promise<{ txHash: `0x${string}`; status: string }> {
+    if (!this.walletClient || !this.backendAccount) {
+      throw new Error(
+        'Backend signing wallet not configured. Set SCHEDULER_PRIVATE_KEY env var.',
+      );
+    }
+
+    const amountInWei = parseUnits(amount, 18);
+
+    if (token === 'CELO') {
+      // Native CELO transfer
+      const txHash = await this.walletClient.sendTransaction({
+        to,
+        value: amountInWei,
+      });
+
+      const receipt = await this.publicClient.waitForTransactionReceipt({
+        hash: txHash,
+        timeout: 60_000,
+      });
+
+      this.logger.log(`CELO transfer confirmed: ${txHash} (${receipt.status})`);
+      return { txHash, status: receipt.status };
+    }
+
+    // ERC20 transfer
+    const tokenAddress = CELO_TOKENS[token] as Address;
+    const data = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'transfer',
+      args: [to, amountInWei],
+    });
+
+    const txHash = await this.walletClient.sendTransaction({
+      to: tokenAddress,
+      data,
+      value: 0n,
+    });
+
+    const receipt = await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: 60_000,
+    });
+
+    this.logger.log(
+      `ERC20 transfer confirmed: ${amount} ${token} → ${to} | tx: ${txHash} (${receipt.status})`,
+    );
+
+    if (receipt.status !== 'success') {
+      throw new Error(`Transaction reverted: ${txHash}`);
+    }
+
+    return { txHash, status: receipt.status };
   }
 }
