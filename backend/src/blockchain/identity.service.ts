@@ -74,10 +74,10 @@ export class IdentityService implements OnModuleInit {
 
     // Auto-detect ODIS context based on chain ID
     const chainId = process.env.CELO_CHAIN_ID;
-    if (chainId === '44787') {
-      // Alfajores testnet
+    if (chainId === '11142220') {
+      // testnet
       this.SERVICE_CONTEXT = OdisUtils.Query.ODIS_ALFAJORES_CONTEXT_PNP;
-      this.logger.log('Using ODIS Alfajores testnet context');
+      this.logger.log('Using ODIS testnet context');
     } else {
       // Mainnet (42220) or default
       this.SERVICE_CONTEXT = OdisUtils.Query.ODIS_MAINNET_CONTEXT_PNP;
