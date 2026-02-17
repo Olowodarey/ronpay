@@ -133,8 +133,8 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
 
               await api.executePayment({
                 txHash: hash,
-                senderAddress: address,
-                recipientAddress: recipientAddress,
+                fromAddress: address,
+                toAddress: recipientAddress,
                 amount: amountNum,
                 currency: currency,
               });
