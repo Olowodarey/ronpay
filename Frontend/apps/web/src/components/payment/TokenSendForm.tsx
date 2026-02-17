@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Loader2,
   Wallet,
@@ -13,9 +13,6 @@ import { useSendTransaction } from "wagmi";
 import { api } from "@/lib/api";
 import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
 
-const CURRENCIES = ["cUSD", "cEUR", "USDT", "USDC"] as const;
-type Currency = (typeof CURRENCIES)[number];
-
 interface TokenSendFormProps {
   onSuccess?: (txHash: string) => void;
   onError?: (error: string) => void;
@@ -25,15 +22,40 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
   const { address, isConnected } = useMiniPayWallet();
   const { sendTransaction } = useSendTransaction();
 
+  // Dynamic token list from backend
+  const [supportedTokens, setSupportedTokens] = useState<string[]>([
+    "USDm",
+    "EURm",
+    "NGNm",
+    "KESm",
+  ]);
   const [recipientAddress, setRecipientAddress] = useState("");
   const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<Currency>("cUSD");
+  const [currency, setCurrency] = useState("USDm");
   const [memo, setMemo] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<{
     type: "idle" | "parsing" | "signing" | "confirming" | "success" | "error";
     message: string;
   }>({ type: "idle", message: "" });
+
+  // Fetch supported tokens on mount
+  useEffect(() => {
+    const fetchTokens = async () => {
+      try {
+        const { tokens } = await api.getSupportedTokens();
+        setSupportedTokens(tokens);
+        // Set first token as default if current currency not in list
+        if (!tokens.includes(currency)) {
+          setCurrency(tokens[0] || "USDm");
+        }
+      } catch (error) {
+        console.error("Failed to fetch tokens:", error);
+        // Keep fallback tokens
+      }
+    };
+    fetchTokens();
+  }, []);
 
   const validateAddress = (addr: string): boolean => {
     // Ethereum address validation
@@ -223,7 +245,7 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
             Currency
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {CURRENCIES.map((c) => (
+            {supportedTokens.map((c) => (
               <button
                 key={c}
                 type="button"

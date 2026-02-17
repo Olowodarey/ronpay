@@ -172,6 +172,31 @@ class ApiService {
   }
 
   /**
+   * Get supported tokens from backend
+   */
+  async getSupportedTokens(): Promise<{
+    tokens: string[];
+    addresses: Record<string, string>;
+  }> {
+    try {
+      const response = await fetch(`${BACKEND_URL}/payments/tokens`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch supported tokens");
+      }
+
+      return await response.json();
+    } catch (error) {
+      // Fallback to default tokens if backend is unavailable
+      console.warn("Using fallback tokens:", error);
+      return {
+        tokens: ["USDm", "EURm", "NGNm", "KESm"],
+        addresses: {},
+      };
+    }
+  }
+
+  /**
    * Health check
    */
   async healthCheck(): Promise<boolean> {
