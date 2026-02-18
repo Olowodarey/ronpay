@@ -84,15 +84,21 @@ export class CeloService implements OnModuleInit {
       }
 
       try {
-        this.backendAccount = privateKeyToAccount(normalizedKey as `0x${string}`);
+        this.backendAccount = privateKeyToAccount(
+          normalizedKey as `0x${string}`,
+        );
         this.walletClient = createWalletClient({
           account: this.backendAccount,
           chain: celo,
           transport: http(process.env.CELO_RPC_URL || 'https://forno.celo.org'),
         });
-        this.logger.log(`Backend signing wallet initialised: ${this.backendAccount.address}`);
+        this.logger.log(
+          `Backend signing wallet initialised: ${this.backendAccount.address}`,
+        );
       } catch (error) {
-        this.logger.error(`Failed to initialize scheduler wallet: ${error.message}`);
+        this.logger.error(
+          `Failed to initialize scheduler wallet: ${error.message}`,
+        );
       }
     } else {
       this.logger.warn(
@@ -220,7 +226,7 @@ export class CeloService implements OnModuleInit {
     expectedAmount: string,
     token: keyof typeof CELO_TOKENS = 'USDm',
   ): Promise<boolean> {
-    const receipt = await this.getTransactionReceipt(txHash);
+    const receipt = await this.waitForTransaction(txHash);
     if (receipt.status !== 'success') return false;
 
     const tokenAddress = CELO_TOKENS[token] as Address;
@@ -231,7 +237,7 @@ export class CeloService implements OnModuleInit {
       (log) =>
         log.address.toLowerCase() === tokenAddress.toLowerCase() &&
         log.topics[0] ===
-        '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', // Transfer(address,address,uint256)
+          '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', // Transfer(address,address,uint256)
     );
 
     for (const log of transferLogs) {
@@ -280,7 +286,9 @@ export class CeloService implements OnModuleInit {
    */
   getTokenMap() {
     const chainId = parseInt(process.env.CELO_CHAIN_ID || '42220');
-    return chainId === CELO_CHAIN_IDS.ALFAJORES ? CELO_ALFAJORES_TOKENS : CELO_MAINNET_TOKENS;
+    return chainId === CELO_CHAIN_IDS.ALFAJORES
+      ? CELO_ALFAJORES_TOKENS
+      : CELO_MAINNET_TOKENS;
   }
 
   /**
@@ -288,7 +296,8 @@ export class CeloService implements OnModuleInit {
    */
   getBrokerAddress(): Address {
     const chainId = parseInt(process.env.CELO_CHAIN_ID || '42220');
-    return (MENTO_BROKER_ADDRESSES[chainId] || MENTO_BROKER_ADDRESSES[CELO_CHAIN_IDS.MAINNET]) as Address;
+    return (MENTO_BROKER_ADDRESSES[chainId] ||
+      MENTO_BROKER_ADDRESSES[CELO_CHAIN_IDS.MAINNET]) as Address;
   }
 
   /**
@@ -314,7 +323,9 @@ export class CeloService implements OnModuleInit {
 
       return formatUnits(allowance as bigint, 18);
     } catch (error) {
-      this.logger.error(`Failed to get allowance for ${token}: ${error.message}`);
+      this.logger.error(
+        `Failed to get allowance for ${token}: ${error.message}`,
+      );
       return '0';
     }
   }

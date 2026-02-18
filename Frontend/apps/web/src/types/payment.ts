@@ -8,6 +8,7 @@ export type PaymentAction =
   | "check_balance"
   | "pay_bill"
   | "buy_airtime"
+  | "buy_data"
   | "unknown";
 
 export interface PaymentIntent {
@@ -15,8 +16,12 @@ export interface PaymentIntent {
   recipient?: string;
   amount?: number;
   currency?: string;
+  sourceCurrency?: string;
   memo?: string;
   confidence?: number;
+  biller?: string;
+  provider?: string;
+  package?: string;
 }
 
 export interface TransactionData {
@@ -33,10 +38,22 @@ export interface ParsedCommand {
   memo?: string;
 }
 
+export interface AirtimeMeta {
+  serviceType: string;
+  provider: string;
+  biller: string;
+  recipient: string;
+  detectedNetwork: string;
+  originalAmountNgn: number;
+  exchangeRate: number;
+  variation_code?: string;
+}
+
 export interface ParseIntentResponse {
   intent: PaymentIntent;
   transaction: TransactionData;
   parsedCommand: ParsedCommand;
+  sessionId?: string;
   actionRequired?: string;
   exchangeRate?: {
     from: string;
@@ -47,6 +64,11 @@ export interface ParseIntentResponse {
     source: string;
   };
   nextTransaction?: TransactionData;
+  routing?: {
+    routeUsed: string;
+    exchangeRate: number;
+  };
+  meta?: AirtimeMeta;
 }
 
 export interface ExecutePaymentRequest {
@@ -57,6 +79,9 @@ export interface ExecutePaymentRequest {
   txHash: string;
   intent?: string;
   memo?: string;
+  type?: string;
+  serviceId?: string;
+  metadata?: AirtimeMeta;
 }
 
 export interface TokenBalance {

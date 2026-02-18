@@ -11,6 +11,7 @@ import { BottomNav } from "@/components/chat/BottomNav";
 import { PaymentIntentDisplay } from "@/components/payment/PaymentIntentDisplay";
 import { PaymentConfirmation } from "@/components/payment/PaymentConfirmation";
 import { BalanceDisplay } from "@/components/payment/BalanceDisplay";
+import { AirtimeConfirmation } from "@/components/payment/AirtimeConfirmation";
 import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
 import { usePaymentIntent } from "@/hooks/usePaymentIntent";
 import type { ParseIntentResponse } from "@/types/payment";
@@ -244,6 +245,18 @@ export default function Home() {
             <PaymentConfirmation
               parsedCommand={parsedIntent.parsedCommand}
               transaction={parsedIntent.transaction}
+              senderAddress={address}
+              onSuccess={handlePaymentSuccess}
+              onCancel={handleCancelPayment}
+            />
+          )}
+
+        {/* Airtime Confirmation for buy_airtime */}
+        {parsedIntent &&
+          parsedIntent.intent.action === "buy_airtime" &&
+          address && (
+            <AirtimeConfirmation
+              intentResponse={parsedIntent}
               senderAddress={address}
               onSuccess={handlePaymentSuccess}
               onCancel={handleCancelPayment}

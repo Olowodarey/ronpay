@@ -14,8 +14,8 @@ async function debugBuyAirtime() {
     
     // Test data
     const testData = {
-      mobile_number: '09046144400', // Airtel number provided by user
-      amount: 100, // Minimum amount for testing
+      mobile_number: '08142293610', // Airtel number provided by user
+      amount: 50, // Minimum amount for testing
       mobile_network: '', // Let the service auto-detect or fail if needed
     };
 
