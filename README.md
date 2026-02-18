@@ -1,216 +1,133 @@
 # 💰 RonPay
 
-> AI-powered payment agent for Africa and Beyond. Send money using natural language, schedule recurring payments, and auto-pay bills.
+
+> **Hackathon Note:** We were unable to verify ourselves from Nigeria during the testing period. Please consider this when reviewing the live demo.
+
+> **AI-Powered Financial Freedom for Africa.** Send money, buy airtime, and pay bills using natural language within MiniPay.
 
 [![Built on Celo](https://img.shields.io/badge/Built%20on-Celo-FCFF52)](https://celo.org)
-[![ERC-8004](https://img.shields.io/badge/ERC--8004-Verified-00C853)](https://8004scan.io)
+[![MiniPay Optimized](https://img.shields.io/badge/MiniPay-Optimized-00C853)](https://www.opera.com/minipay)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## What is RonPay?
+## 🌟 What is RonPay?
 
-RonPay is your AI assistant for payments. Just talk to it naturally:
+RonPay is an intelligent payment agent built for the next generation of mobile users in Africa. By combining the power of **Large Language Models (LLMs)** with the **Celo Blockchain**, we've removed the complexity of decentralized finance.
 
-```
-You: "Send ₦50,000 to mom every month on the 5th"
-RonPay: "✅ Done! First payment scheduled for March 5th"
-```
+No more copying long wallet addresses or calculating exchange rates manually. Just tell RonPay what you want to do.
 
-No wallet addresses. No crypto jargon. Just simple payments.
-
-## Features
-
-### 💬 Natural Language Payments
-Talk naturally in **4 languages** - RonPay understands what you mean:
-- 🇬🇧 English: "Send $100 to Jane in Kenya"
-- 🇪🇸 Spanish: "Envía $100 a mamá en Colombia"
-- 🇧🇷 Portuguese: "Enviar R$500 para João no Brasil"
-- 🇫🇷 French: "Envoyer 10,000 FCFA à papa au Sénégal"
-
-### 💰 Real-Time Exchange Rates & Savings
-See exactly how much you save:
-- **Real-time Mento Protocol rates** (no hidden markups)
-- Compare fees vs Western Union & Wise
-- **Save up to 95%** on remittance fees
-- Transparent pricing - what you see is what you get
-
-### 🔄 Auto-Pilot Payments
-Set it once, forget forever:
-- Monthly remittances to family (5th, 15th, any day)
-- Recurring bill payments
-- Daily/weekly schedules
-- Balance checks before execution
-- SMS reminders 24h before payment
-
-### 🌍 Multi-Country Support
-Send money across borders instantly:
-- 🇳🇬 Nigeria (Naira)
-- 🇰🇪 Kenya (Shilling)
-- 🇧🇷 Brazil (Real)
-- 🇨🇴 Colombia (Peso)
-- 🇬🇭 Ghana (Cedi)
-- 🇵🇭 Philippines (Peso) *coming soon*
-
-### 📺 Nigerian Bill Payments
-Auto-pay your bills via VTPASS:
-- DSTV, GOtv, Startimes
-- MTN, Airtel, Glo, 9mobile airtime & data
-- Electricity bills
-
-### 📱 Smart Notifications
-Never miss a payment update:
-- SMS confirmations
-- WhatsApp notifications
-- Transaction receipts
-- Savings summaries
-
-## Tech Stack
-
-- **Frontend**: Next.js, Wagmi, Tailwind
-- **Backend**: NestJS, PostgreSQL, Redis
-- **AI**: Claude Sonnet 4 (Anthropic) - Multi-language NLP (EN, ES, PT, FR)
-- **Blockchain**: Celo + Mento Protocol (Real-time exchange rates)
-- **Bill Payments**: VTPASS API (Nigeria)
-- **Notifications**: Twilio (SMS + WhatsApp)
-- **Fee Comparison**: Wise API + Western Union integration
-
-
-## Architecture
-
-```
-┌─────────────┐
-│   User      │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Claude AI  │ ← Understands natural language
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Scheduler  │ ← Manages recurring payments
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    Celo     │ ← Sends transactions
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│     SMS     │ ← Confirms to recipient
-└─────────────┘
+```text
+You: "Buy 1000 Naira MTN airtime for 08142293610"
+RonPay: "✅ Got it! I've prepared your ₦1,000 airtime purchase for 0.67 USDm. Click confirm to sign."
 ```
 
-## Project Structure
+## 🚀 Key Features
 
+### 💬 Natural Language Intelligence
+
+Powered by **Google Gemini 2.0** and **Claude 3.5**, RonPay parses your intent instantly.
+
+- **Multilingual**: Supports English, French, Spanish, and Portuguese.
+- **Intent Detection**: Automatically distinguishes between P2P transfers, airtime purchases, and bill payments.
+
+### ⚡ Instant Cross-Border Remittance
+
+- **Mento Protocol Integration**: Uses real-time stabilized exchange rates for USDm, NGNm, KESm, BRLm, and EURm.
+- **Ultra-Low Fees**: Save up to 95% compared to traditional remittance services.
+- **Direct signing**: Sign and send in seconds using MiniPay's injected wallet.
+
+### � Utility & Bill Payments
+
+- **Airtime & Data**: Instant top-up for MTN, Airtel, Glo, and 9mobile via **Nellobytes integration**.
+- **Automated Verification**: Backend validates blockchain receipts before triggering utility fulfillment.
+- **Bill Auto-Pay**: (Beta) Pay for electricity and TV subscriptions using natural language commands.
+
+### � Smart Financial Management
+
+- **Balance Tracking**: "Check my USDm balance" or "Show me my NGNm holdings".
+- **Real-time Timestamps**: Every message is tracked with live timestamps for better transaction logging.
+- **Default Country Localization**: Pre-configured for the Nigerian market with 🇳🇬 Nigeria as the default country.
+
+## 🛠️ Tech Stack
+
+- **Frontend**:
+  - [Next.js](https://nextjs.org/) (React)
+  - [Wagmi](https://wagmi.sh/) & [Viem](https://viem.sh/) (Celo/Blockchain interaction)
+  - [Lucide React](https://lucide.dev/) (Icons)
+  - [Tailwind CSS](https://tailwindcss.com/) (Styling)
+- **Backend**:
+  - [NestJS](https://nestjs.com/) (Node.js framework)
+  - [TypeORM](https://typeorm.io/) (Database mapping)
+  - [Viem](https://viem.sh/) (Blockchain verification)
+- **AI/LLM**:
+  - Google Gemini 2.0 API
+  - Anthropic Claude 3.5 API
+- **Infrastructure**:
+  - [Mento Protocol](https://mento.org/) (Exchange rates)
+  - [Nellobytes](https://www.nellobytesystems.com/) (Utility API)
+  - [Celo Blockchain](https://celo.org/) (Settlement Layer)
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    A[User Message] --> B[AI Intent Parser]
+    B --> C{Action Detected}
+    C -->|Send Payment| D[Mento Routing & Build Tx]
+    C -->|Buy Airtime| E[Treasury Tx & Nellobytes Order]
+    D --> F[MiniPay Sign & Broadcast]
+    E --> F
+    F --> G[Backend Execution & Verification]
+    G --> H[Final Status in Chat]
 ```
+
+## 📂 Project Structure
+
+```text
 ronpay/
-├── frontend/          # Next.js app
-│   ├── pages/        # Routes
-│   ├── components/   # React components
-│   └── styles/       # Tailwind CSS
-├── backend/          # NestJS API (ronpay)
-│   ├── src/          # Source files
-│   │   ├── ai/             # Claude AI integration
-│   │   ├── blockchain/     # Celo transactions
-│   │   ├── scheduler/      # Recurring payments
-│   │   └── bills/          # VTPASS integration
-│   ├── test/         # E2E tests
-│   └── nest-cli.json # NestJS configuration
-├── contracts/        # Smart contracts (if any)
-└── docs/            # Documentation
+├── Frontend/           # Next.js web application
+│   ├── apps/web/       # Main chat interface
+│   └── components/     # UI & Payment components
+├── backend/            # NestJS API & Oracle
+│   ├── src/ai/         # Gemini & Claude prompt logic
+│   ├── src/blockchain/ # Celo & Mento integration
+│   ├── src/nellobytes/ # Airtime fulfillment logic
+│   └── src/payments/   # Transaction lifecycle management
+└── scripts/            # Debugging & maintenance tools
 ```
 
-## Development
+## 🛣️ Roadmap
 
-```bash
-# Run frontend (port 3000)
-pnpm run dev:frontend
+### ✅ Phase 1: Foundation (Current)
 
-# Run backend (port 4000)
-pnpm run dev:backend
+- [x] AI Intent Parsing (Gemini/Claude)
+- [x] MiniPay Wallet Integration
+- [x] Mento Protocol Cross-Currency Routing
+- [x] Airtime Purchase Flow (Nellobytes)
+- [x] Real-time Transaction Verification
 
-# Run worker (background jobs)
-pnpm run dev:worker
+### 🚧 Phase 2: Growth (Q2 2026)
 
-# Run tests
-pnpm test
+- [ ] Multi-Step Recurring Payments
+- [ ] ODIS Phone Number Resolution (Send money to phone contacts)
+- [ ] WhatsApp & Telegram Bot Interface
+- [ ] Expanded Bill Payments (Electricity, Water, TV)
 
-# Run all
-pnpm run dev
-```
+### 🔮 Phase 3: Scaling (Q3 2026+)
 
-## Deployment
+- [ ] Merchant API for RonPay
+- [ ] Voice Command Support
+- [ ] 10+ New African Markets (Ghana, Kenya, Rwanda, etc.)
 
-### Frontend (Vercel)
-```bash
-vercel deploy --prod
-```
+## 🤝 Contributing
 
-### Backend (Railway)
-```bash
-railway up
-```
+We welcome contributions! Please see our contributing guidelines or open an issue for discussion.
 
-### Worker (Fly.io)
-```bash
-flyctl deploy
-```
+## 📄 License
 
-## ERC-8004 Agent
-
-RonPay is a verified ERC-8004 AI Agent:
-- **Agent ID**: `[YOUR_AGENT_ID]`
-- **View Profile**: [8004scan.io](#)
-- **Reputation Score**: [YOUR_SCORE]/100
-
-## Roadmap
-
-### ✅ Completed (MVP)
-- [x] Natural language payments (English)
-- [x] Celo blockchain integration
-- [x] Scheduled recurring payments
-- [x] Nigerian bill payments (VTPASS)
-- [x] Multi-stablecoin support (cUSD, cKES, cEUR, cREAL)
-- [x] Transaction history tracking
-
-### 🚧 In Progress (Production Ready - 2-3 weeks)
-- [/] Multi-language support (English, Spanish, Portuguese, French)
-- [/] Real-time Mento Protocol exchange rates
-- [/] Fee comparison vs Western Union & Wise
-- [/] SMS/WhatsApp notifications
-- [/] Enhanced recurring scheduler
-- [/] ODIS phone number resolution
-- [/] Production deployment
-
-### 🔮 Future (Q1-Q2 2026)
-- [ ] MiniPay marketplace launch (March 2026)
-- [ ] 15+ African countries
-- [ ] WhatsApp bot interface
-- [ ] Voice commands integration
-- [ ] Telegram bot
-- [ ] Agent reputation system (ERC-8004)
-
-## Contributing
-
-Contributions welcome! Please:
-1. Fork the repo
-2. Create a branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add feature'`)
-4. Push (`git push origin feature/amazing`)
-5. Open a Pull Request
-
-## License
-
-MIT License - see [LICENSE](LICENSE)
-
-## Contact
-
-- Twitter: [@RonPayAI](#)
-- Email: hello@ronpay.xyz
-- Discord: [Join Chat](#)
+Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
+
+Built with ❤️ for the Celo Ecosystem.

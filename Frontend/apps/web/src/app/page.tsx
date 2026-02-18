@@ -34,6 +34,15 @@ interface Purchase {
   currency: string;
 }
 
+const getTimestamp = () => {
+  const now = new Date();
+  return now.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 export default function Home() {
   const [country, setCountry] = React.useState("nigeria");
   const [token, setToken] = React.useState("USDm");
@@ -43,7 +52,7 @@ export default function Home() {
       id: "1",
       text: "Hello! 👋 I'm ready to help. Select your country and preferred payment token above to get started with instant transactions.",
       isUser: false,
-      timestamp: "Today, 9:41 AM",
+      timestamp: `Today, ${getTimestamp()}`,
     },
   ]);
   const [pendingPurchase, setPendingPurchase] = React.useState<Purchase | null>(
@@ -61,6 +70,7 @@ export default function Home() {
       id: Date.now().toString(),
       text,
       isUser: true,
+      timestamp: `Today, ${getTimestamp()}`,
     };
     setMessages((prev) => [...prev, newMessage]);
 
@@ -97,6 +107,7 @@ export default function Home() {
           " ",
         )}`,
         isUser: false,
+        timestamp: `Today, ${getTimestamp()}`,
       };
       setMessages((prev) => [...prev, aiMessage]);
 
@@ -111,6 +122,7 @@ export default function Home() {
         id: Date.now().toString(),
         text: `❌ ${error}`,
         isUser: false,
+        timestamp: `Today, ${getTimestamp()}`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     }
@@ -155,6 +167,7 @@ export default function Home() {
       id: Date.now().toString(),
       text: "✅ Purchase confirmed! Your data bundle has been activated.",
       isUser: false,
+      timestamp: `Today, ${getTimestamp()}`,
     };
     setMessages((prev) => [...prev, confirmMessage]);
   };
@@ -172,6 +185,7 @@ export default function Home() {
         10,
       )}...`,
       isUser: false,
+      timestamp: `Today, ${getTimestamp()}`,
     };
     setMessages((prev) => [...prev, successMessage]);
   };
@@ -182,6 +196,7 @@ export default function Home() {
       id: Date.now().toString(),
       text: "Payment cancelled.",
       isUser: false,
+      timestamp: `Today, ${getTimestamp()}`,
     };
     setMessages((prev) => [...prev, cancelMessage]);
   };
@@ -272,10 +287,8 @@ export default function Home() {
 
       {/* Bottom Navigation */}
       <div className="hidden">
-         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
-     
     </div>
   );
 }
