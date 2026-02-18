@@ -154,17 +154,70 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
       );
 
       const isApproveRequired = parseResponse.actionRequired === "APPROVE_REQUIRED";
+      const isSwapThenSend = parseResponse.actionRequired === "SWAP_THEN_SEND";
 
-      // Step 2: Sign and send via MiniPay
+      // Step 2: Determine message and start first transaction
+      let statusMessage = "Please sign the transaction in MiniPay...";
+      if (isApproveRequired) {
+        statusMessage = `Please approve the Mento Broker to spend your ${sourceCurrency}...`;
+      } else if (isSwapThenSend) {
+        statusMessage = `Step 1/2: Validating Swap (${sourceCurrency} → ${currency})...`;
+      } else if (isCrossCurrency) {
+        statusMessage = `Please sign your ${sourceCurrency} → ${amountNum} ${currency} swap...`;
+      }
+
       setStatus({
         type: "signing",
-        message: isApproveRequired
-          ? `Step 1: Please approve the Mento Broker to spend your ${sourceCurrency}...`
-          : isCrossCurrency
-            ? `Step 2: Please sign your ${sourceCurrency} → ${amountNum} ${currency} swap...`
-            : "Please sign the transaction in MiniPay...",
+        message: statusMessage,
       });
 
+      // Helper to handle final success
+      const handleFinalSuccess = async (hash: string) => {
+        try {
+          setStatus({
+            type: "confirming",
+            message: "Recording transaction...",
+          });
+
+          await api.executePayment({
+            txHash: hash,
+            fromAddress: address,
+            toAddress: recipientAddress,
+            amount: amountNum,
+            currency: currency,
+          });
+
+          const successMsg = isCrossCurrency
+            ? `✅ Sent ${amountNum} ${currency} (debited ${swapQuote?.debitAmount || "?"} ${sourceCurrency})`
+            : `✅ Sent ${amountNum} ${currency}`;
+
+          setStatus({
+            type: "success",
+            message: `${successMsg} to ${recipientAddress.slice(0, 6)}...${recipientAddress.slice(-4)}`,
+          });
+
+          onSuccess?.(hash);
+          setIsProcessing(false);
+
+          setTimeout(() => {
+            setRecipientAddress("");
+            setAmount("");
+            setMemo("");
+            setSwapQuote(null);
+            setStatus({ type: "idle", message: "" });
+          }, 3000);
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error
+              ? error.message
+              : "Failed to record transaction";
+          setStatus({ type: "error", message: errorMsg });
+          onError?.(errorMsg);
+          setIsProcessing(false);
+        }
+      };
+
+      // Execute first transaction
       sendTransaction(
         {
           to: parseResponse.transaction.to as `0x${string}`,
@@ -173,58 +226,46 @@ export function TokenSendForm({ onSuccess, onError }: TokenSendFormProps) {
         },
         {
           onSuccess: async (hash) => {
-            try {
-              if (isApproveRequired) {
-                setStatus({
-                  type: "success",
-                  message: `✅ Approval successful! Now click "Send" again to complete your ${amountNum} ${currency} transfer.`,
-                });
-                setIsProcessing(false);
-                // Don't call executePayment for approvals
-                return;
-              }
-
-              setStatus({
-                type: "confirming",
-                message: "Recording transaction...",
-              });
-
-              await api.executePayment({
-                txHash: hash,
-                fromAddress: address,
-                toAddress: recipientAddress,
-                amount: amountNum,
-                currency: currency,
-              });
-
-              const successMsg = isCrossCurrency
-                ? `✅ Sent ${amountNum} ${currency} (debited ${swapQuote?.debitAmount || "?"} ${sourceCurrency})`
-                : `✅ Sent ${amountNum} ${currency}`;
-
+            if (isApproveRequired) {
               setStatus({
                 type: "success",
-                message: `${successMsg} to ${recipientAddress.slice(0, 6)}...${recipientAddress.slice(-4)}`,
+                message: `✅ Approval successful! Now click "Send" again to complete your ${amountNum} ${currency} transfer.`,
+              });
+              setIsProcessing(false);
+              return;
+            }
+
+            if (isSwapThenSend && parseResponse.nextTransaction) {
+              // Now trigger the second transaction
+              setStatus({
+                type: "signing",
+                message: `Step 2/2: Swap complete! Now sign the transfer to ${recipientAddress.slice(0, 6)}...`,
               });
 
-              onSuccess?.(hash);
-              setIsProcessing(false);
-
+              // Small delay for UI update
               setTimeout(() => {
-                setRecipientAddress("");
-                setAmount("");
-                setMemo("");
-                setSwapQuote(null);
-                setStatus({ type: "idle", message: "" });
-              }, 3000);
-            } catch (error) {
-              const errorMsg =
-                error instanceof Error
-                  ? error.message
-                  : "Failed to record transaction";
-              setStatus({ type: "error", message: errorMsg });
-              onError?.(errorMsg);
-              setIsProcessing(false);
+                sendTransaction(
+                  {
+                    to: parseResponse.nextTransaction!.to as `0x${string}`,
+                    value: BigInt(parseResponse.nextTransaction!.value),
+                    data: parseResponse.nextTransaction!.data,
+                  },
+                  {
+                    onSuccess: handleFinalSuccess,
+                    onError: (error) => {
+                      const errorMsg = error.message || "Second transaction failed";
+                      setStatus({ type: "error", message: `Step 2 Failed: ${errorMsg}` });
+                      onError?.(`Step 2 Failed: ${errorMsg}`);
+                      setIsProcessing(false);
+                    }
+                  }
+                );
+              }, 1000);
+              return;
             }
+
+            // Standard single transaction success
+            await handleFinalSuccess(hash);
           },
           onError: (error) => {
             const errorMsg = error.message || "Transaction failed";

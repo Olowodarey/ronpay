@@ -286,14 +286,15 @@ export class PaymentsService {
         }
 
         // 3. Build the Swap transaction data
-        // For testnet simplicity, we build a direct Swap transaction.
-        // The recipient will receive the swapped tokens in their wallet.
-        // TODO: Use a Router for single-tx SwapAndSend if available.
         const swapTx = await this.mentoService.buildSwapTransaction(
           sourceCurrency as keyof typeof CELO_TOKENS,
           destinationCurrency as keyof typeof CELO_TOKENS,
           intent.amount.toString(),
           (parseFloat(sendAmount) * 1.01).toFixed(6), // 1% slippage margin
+        );
+
+        this.logger.log(
+          `Swap transaction built: ${JSON.stringify(swapTx, null, 2)}`,
         );
 
         // Update the transaction data to be the swap transaction
@@ -303,6 +304,47 @@ export class PaymentsService {
           data: swapTx.data as `0x${string}`,
           feeCurrency: (this.celoService.getTokenMap() as any).USDm,
         };
+
+        // 4. Check if this is a transfer to a third party (Swap AND Send)
+        if (
+          senderAddress &&
+          recipientAddress.toLowerCase() !== senderAddress.toLowerCase()
+        ) {
+          this.logger.log(
+            `Third-party transfer detected: ${senderAddress} -> ${recipientAddress}. Preparing SWAP_THEN_SEND.`,
+          );
+
+          // Build the second transaction (Transfer)
+          const transferTx = await this.celoService.buildPaymentTransaction(
+            recipientAddress,
+            intent.amount.toString(),
+            destinationCurrency as keyof typeof CELO_TOKENS,
+          );
+
+          actionRequired = 'SWAP_THEN_SEND';
+
+          // Return immediately with the special action
+          return {
+            intent,
+            transaction: transactionData, // Step 1: Swap
+            nextTransaction: transferTx,  // Step 2: Send
+            actionRequired,
+            parsedCommand: {
+              recipient: recipientAddress,
+              amount: intent.amount,
+              currency: destinationCurrency,
+              sourceCurrency,
+              sendAmount, // Amount of source currency to spend
+              memo: intent.memo,
+            },
+            exchangeRate,
+            summary: `Step 1: Swap ${sourceCurrency} to ${destinationCurrency}. Step 2: Send to ${intent.recipient}.`,
+          };
+        }
+
+        this.logger.log(
+          `Swap transaction data: ${JSON.stringify(transactionData, null, 2)}`,
+        );
       } catch (error) {
         this.logger.error(`Mento swap building failed: ${error.message}`);
         throw new BadRequestException(
@@ -508,7 +550,7 @@ export class PaymentsService {
           const isToTreasury =
             dto.toAddress.toLowerCase() === treasuryAddress?.toLowerCase();
 
-          this.logger.debug('dto.metadata.provider', dto.metadata.provider);
+          this.logger.debug('dto.metadata', dto.metadata);
 
           if (
             isToTreasury &&

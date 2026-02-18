@@ -46,6 +46,7 @@ export interface ParseIntentResponse {
     receiveAmount: string;
     source: string;
   };
+  nextTransaction?: TransactionData;
 }
 
 export interface ExecutePaymentRequest {
