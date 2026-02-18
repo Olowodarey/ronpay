@@ -35,7 +35,7 @@ interface Purchase {
 }
 
 export default function Home() {
-  const [country, setCountry] = React.useState("ghana");
+  const [country, setCountry] = React.useState("nigeria");
   const [token, setToken] = React.useState("USDm");
   const [activeTab, setActiveTab] = React.useState("home");
   const [messages, setMessages] = React.useState<Message[]>([
@@ -271,7 +271,11 @@ export default function Home() {
       <ChatInput onSend={handleSendMessage} />
 
       {/* Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="hidden">
+         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+
+      </div>
+     
     </div>
   );
 }
