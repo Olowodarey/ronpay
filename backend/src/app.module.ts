@@ -48,12 +48,29 @@ import { NellobytesModule } from './nellobytes/nellobytes.module';
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('REDIS_URL');
+        if (redisUrl) {
+          const url = new URL(redisUrl);
+
+          const isTls = url.protocol === 'rediss:';
+          return {
+            redis: {
+              host: url.hostname,
+              port: Number(url.port),
+              username: url.username,
+              password: url.password,
+              tls: isTls ? { rejectUnauthorized: false } : undefined,
+            },
+          };
+        }
+        return {
+          redis: {
+            host: configService.get('REDIS_HOST', 'localhost'),
+            port: configService.get('REDIS_PORT', 6379),
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     // MCP Server — exposes tools for AI agent integration
