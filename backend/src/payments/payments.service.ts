@@ -584,11 +584,15 @@ export class PaymentsService {
             );
             try {
               // Use detected network if available, otherwise fallback to auto-detect
-              const networkToUse =
+              let networkToUse =
                 dto.metadata.detectedNetwork ||
                 dto.metadata.biller ||
                 dto.metadata.recipient ||
                 '';
+
+              if (networkToUse === 'AUTO_DETECT') {
+                networkToUse = '';
+              }
 
               this.logger.log(
                 `Airtime purchase: Using network='${networkToUse}', phone='${dto.metadata.recipient}'`,
@@ -811,9 +815,14 @@ export class PaymentsService {
 
     // 2. Call Service to purchase airtime
     try {
+      let network = dto.provider || '';
+      if (network === 'AUTO_DETECT') {
+        network = '';
+      }
+
       // Use Nellobytes for airtime
       const response = await this.nellobytesService.buyAirtime({
-        mobile_network: dto.provider || '', // Pass empty string to trigger auto-detection if provider is missing
+        mobile_network: network, // Pass empty string to trigger auto-detection if provider is missing
         amount: dto.amount,
         mobile_number: dto.phoneNumber,
         request_id: dto.txHash,

@@ -143,7 +143,7 @@ export class NellobytesService {
       MobileNetwork: networkCode,
       Amount: data.amount.toString(),
       MobileNumber: data.mobile_number,
-      RequestID: data.request_id || this.generateRequestId(),
+      RequestID: this.sanitizeRequestId(data.request_id || this.generateRequestId()),
       CallBackURL: callbackUrl,
     });
 
@@ -311,5 +311,19 @@ export class NellobytesService {
     throw new InternalServerErrorException(
       error.response?.data?.message || 'Nellobytes API Error',
     );
+  }
+
+  /**
+   * Helper: Sanitize Request ID to meet API length limits
+   * Nellobytes may have issues with very long IDs (like 66-char tx hashes)
+   */
+  private sanitizeRequestId(requestId: string): string {
+    if (requestId.length <= 30) {
+      return requestId;
+    }
+    // If too long, take the last 20 characters and add a prefix
+    // This preserves enough entropy from a hash while keeping it short
+    const shortId = requestId.slice(-20);
+    return `TX-${shortId}`;
   }
 }
