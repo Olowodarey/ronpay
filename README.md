@@ -3,11 +3,9 @@
 
 > **Hackathon Note:** We were unable to verify ourselves from Nigeria during the testing period. Please consider this when reviewing the live demo.
 
-> **AI-Powered Financial Freedom for Africa.** Send money, buy airtime, and pay bills using natural language within MiniPay.
+![Airtime Purchase Successfull](./image.png)
 
-[![Built on Celo](https://img.shields.io/badge/Built%20on-Celo-FCFF52)](https://celo.org)
-[![MiniPay Optimized](https://img.shields.io/badge/MiniPay-Optimized-00C853)](https://www.opera.com/minipay)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+> **AI-Powered Financial Freedom for Africa.** Send money, buy airtime, and pay bills using natural language within MiniPay.
 
 ---
 
