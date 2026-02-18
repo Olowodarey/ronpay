@@ -3,7 +3,13 @@
  * Shows parsed payment intent with visual feedback
  */
 
-import { ArrowUpRight, Wallet, CreditCard, AlertCircle } from "lucide-react";
+import {
+  ArrowUpRight,
+  Wallet,
+  CreditCard,
+  Phone,
+  AlertCircle,
+} from "lucide-react";
 import type { PaymentIntent } from "@/types/payment";
 
 interface PaymentIntentDisplayProps {
@@ -19,6 +25,9 @@ export function PaymentIntentDisplay({ intent }: PaymentIntentDisplayProps) {
         return <Wallet className="h-5 w-5" />;
       case "pay_bill":
         return <CreditCard className="h-5 w-5" />;
+      case "buy_airtime":
+      case "buy_data":
+        return <Phone className="h-5 w-5" />;
       default:
         return <AlertCircle className="h-5 w-5" />;
     }
@@ -32,6 +41,10 @@ export function PaymentIntentDisplay({ intent }: PaymentIntentDisplayProps) {
         return "Check Balance";
       case "pay_bill":
         return "Pay Bill";
+      case "buy_airtime":
+        return "Buy Airtime";
+      case "buy_data":
+        return "Buy Data";
       default:
         return "Unknown Action";
     }
@@ -76,9 +89,17 @@ export function PaymentIntentDisplay({ intent }: PaymentIntentDisplayProps) {
       <div className="space-y-2 text-sm">
         {intent.recipient && (
           <div className="flex justify-between">
-            <span className="text-gray-600">Recipient:</span>
+            <span className="text-gray-600">
+              {intent.action === "buy_airtime" || intent.action === "buy_data"
+                ? "Phone:"
+                : "Recipient:"}
+            </span>
             <span className="font-medium text-gray-900 font-mono text-xs">
-              {intent.recipient.slice(0, 6)}...{intent.recipient.slice(-4)}
+              {intent.action === "buy_airtime" || intent.action === "buy_data"
+                ? intent.recipient
+                : `${intent.recipient.slice(0, 6)}...${intent.recipient.slice(
+                    -4,
+                  )}`}
             </span>
           </div>
         )}

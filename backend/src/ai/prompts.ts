@@ -15,16 +15,24 @@ Return JSON with these fields:
   "recipient": "wallet address, phone number, or smartcard number",
   "amount": number (extract numeric value, null if not mentioned),
   "currency": "USDm" | "KESm" | "BRLm" | "EURm" | "NGNm" | "CELO" (default USDm),
+  "sourceCurrency": "optional, the token the sender holds (if different from currency)",
   "memo": "optional description",
-  "biller": "provider name if applicable (e.g. MTN, Airtel, DSTV, IKEDC)",
+  "biller": "provider name if applicable (e.g. MTN, Airtel, Glo, 9mobile, DSTV, IKEDC)",
   "package": "plan/bundle name if applicable",
   "confidence": 0.0 to 1.0
 }
 
+IMPORTANT RULES:
+- For buy_airtime: amount is ALWAYS in Nigerian Naira (NGN). Set currency to "NGNm". The recipient is the phone number.
+- For send_payment: recipient is a wallet address (0x...) or phone number. Currency is the token to send.
+- For check_balance: no amount or recipient needed.
+
 Examples:
 - "Send $100 to 0x123..." → {"action":"send_payment","recipient":"0x123...","amount":100,"currency":"USDm","confidence":0.95}
 - "Buy 1000 Naira MTN airtime for 08012345678" → {"action":"buy_airtime","recipient":"08012345678","amount":1000,"currency":"NGNm","biller":"MTN","confidence":0.95}
+- "Recharge 500 airtime on 09046144400" → {"action":"buy_airtime","recipient":"09046144400","amount":500,"currency":"NGNm","confidence":0.9}
 - "Pay my DSTV Premium subscription, smartcard 1234567890" → {"action":"pay_bill","recipient":"1234567890","amount":null,"currency":"NGNm","biller":"DSTV","package":"Premium","confidence":0.9}
+- "Send 5000 NGNm to 0xabc..." → {"action":"send_payment","recipient":"0xabc...","amount":5000,"currency":"NGNm","confidence":0.95}
 
 Return ONLY the JSON, no explanation.`,
 
