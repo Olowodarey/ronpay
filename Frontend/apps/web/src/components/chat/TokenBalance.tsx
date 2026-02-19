@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits } from "viem";
+import { api } from "@/lib/api";
 
 interface TokenBalanceProps {
   token: string;
@@ -19,15 +20,12 @@ export function TokenBalance({ token }: TokenBalanceProps) {
     async function fetchTokenAddress() {
       try {
         setIsLoadingAddress(true);
-        const response = await fetch("http://localhost:3001/payments/tokens");
-        if (response.ok) {
-          const data = await response.json();
-          const addr = data.addresses[token];
-          // If token is native (CELO), set to undefined
-          setTokenAddress(
-            addr === "native" ? undefined : (addr as `0x${string}`),
-          );
-        }
+        const data = await api.getSupportedTokens();
+        const addr = data.addresses[token];
+        // If token is native (CELO), set to undefined
+        setTokenAddress(
+          addr === "native" ? undefined : (addr as `0x${string}`),
+        );
       } catch (err) {
         console.error("Error fetching token address:", err);
       } finally {
