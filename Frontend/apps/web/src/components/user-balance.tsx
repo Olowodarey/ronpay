@@ -3,6 +3,7 @@
 import { useAccount, useBalance } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 interface SupportedTokens {
   tokens: string[];
@@ -46,13 +47,7 @@ export function UserBalance() {
     async function fetchSupportedTokens() {
       try {
         setIsLoadingTokens(true);
-        const response = await fetch("http://localhost:3001/payments/tokens");
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch supported tokens");
-        }
-
-        const data = await response.json();
+        const data = await api.getSupportedTokens();
         setSupportedTokens(data);
         setError(null);
       } catch (err) {

@@ -6,6 +6,7 @@ import { MoreVertical } from "lucide-react";
 import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
 import { TokenBalance } from "@/components/chat/TokenBalance";
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 interface ChatHeaderProps {
   country: string;
@@ -35,15 +36,12 @@ export function ChatHeader({
   useEffect(() => {
     async function fetchSupportedTokens() {
       try {
-        const response = await fetch("http://localhost:3001/payments/tokens");
-        if (response.ok) {
-          const data = await response.json();
-          const tokenOptions = data.tokens.map((tokenSymbol: string) => ({
-            value: tokenSymbol,
-            label: tokenSymbol,
-          }));
-          setTokens(tokenOptions);
-        }
+        const data = await api.getSupportedTokens();
+        const tokenOptions = data.tokens.map((tokenSymbol: string) => ({
+          value: tokenSymbol,
+          label: tokenSymbol,
+        }));
+        setTokens(tokenOptions);
       } catch (err) {
         console.error("Error fetching supported tokens:", err);
         // Keep default tokens on error

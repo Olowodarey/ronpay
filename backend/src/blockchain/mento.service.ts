@@ -20,10 +20,19 @@ export class MentoService implements OnModuleInit {
 
   async onModuleInit() {
     // Initialize Redis for caching
-    this.redis = new Redis({
-      host: this.configService.get('REDIS_HOST', 'localhost'),
-      port: this.configService.get('REDIS_PORT', 6379),
-    });
+    const redisUrl = this.configService.get('REDIS_URL');
+    if (redisUrl) {
+      this.redis = new Redis(redisUrl, {
+        tls: redisUrl.startsWith('rediss:')
+          ? { rejectUnauthorized: false }
+          : undefined,
+      });
+    } else {
+      this.redis = new Redis({
+        host: this.configService.get('REDIS_HOST', 'localhost'),
+        port: this.configService.get('REDIS_PORT', 6379),
+      });
+    }
 
     // Initialize Ethers Provider for Mento SDK
     this.provider = new providers.JsonRpcProvider(
