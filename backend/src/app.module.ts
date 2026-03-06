@@ -37,9 +37,12 @@ import { NellobytesModule } from './nellobytes/nellobytes.module';
         url: configService.get('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: configService.get('NODE_ENV') !== 'production',
+        ssl: configService.get('NODE_ENV') === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
         extra: {
-          max: 20,
-          min: 5,
+          max: 10,
+          min: 1,
           idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 2000,
         },
