@@ -1,294 +1,130 @@
 "use client";
 
 import * as React from "react";
-import { ChatHeader } from "@/components/chat/ChatHeader";
-import { ChatMessage } from "@/components/chat/ChatMessage";
-import { QuickActions } from "@/components/chat/QuickActions";
-import { ServiceButtons } from "@/components/chat/ServiceButtons";
-import { ChatInput } from "@/components/chat/ChatInput";
-import { PurchaseCard } from "@/components/chat/PurchaseCard";
-import { BottomNav } from "@/components/chat/BottomNav";
-import { PaymentIntentDisplay } from "@/components/payment/PaymentIntentDisplay";
-import { PaymentConfirmation } from "@/components/payment/PaymentConfirmation";
-import { BalanceDisplay } from "@/components/payment/BalanceDisplay";
-import { AirtimeConfirmation } from "@/components/payment/AirtimeConfirmation";
+import Link from "next/link";
+import Image from "next/image";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
 import { useMiniPayWallet } from "@/hooks/useMiniPayWallet";
-import { usePaymentIntent } from "@/hooks/usePaymentIntent";
-import type { ParseIntentResponse } from "@/types/payment";
+import { useRouter } from "next/navigation";
+import { AirtimeBuySection } from "@/components/website/AirtimeBuySection";
 
-interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  timestamp?: string;
-}
+export default function WebsitePage() {
+  const { isMiniPay } = useMiniPayWallet();
+  const { isConnected } = useAccount();
+  const router = useRouter();
 
-interface Purchase {
-  service: {
-    name: string;
-    icon: string;
-    provider?: string;
-  };
-  recipient: string;
-  amount: string;
-  currency: string;
-}
-
-const getTimestamp = () => {
-  const now = new Date();
-  return now.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
-
-export default function Home() {
-  const [country, setCountry] = React.useState("nigeria");
-  const [token, setToken] = React.useState("USDm");
-  const [activeTab, setActiveTab] = React.useState("home");
-  const [messages, setMessages] = React.useState<Message[]>([
-    {
-      id: "1",
-      text: "Hello! 👋 I'm ready to help. Select your country and preferred payment token above to get started with instant transactions.",
-      isUser: false,
-      timestamp: `Today, ${getTimestamp()}`,
-    },
-  ]);
-  const [pendingPurchase, setPendingPurchase] = React.useState<Purchase | null>(
-    null,
-  );
-  const [parsedIntent, setParsedIntent] =
-    React.useState<ParseIntentResponse | null>(null);
-  const [showBalance, setShowBalance] = React.useState(false);
-
-  const { address, isConnected } = useMiniPayWallet();
-  const { data, loading, error, parseIntent, reset } = usePaymentIntent();
-
-  const handleSendMessage = async (text: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text,
-      isUser: true,
-      timestamp: `Today, ${getTimestamp()}`,
-    };
-    setMessages((prev) => [...prev, newMessage]);
-
-    // Reset previous states
-    setParsedIntent(null);
-    setShowBalance(false);
-    reset();
-
-    // Check if wallet is connected
-    if (!isConnected || !address) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "⚠️ Please connect your MiniPay wallet to continue.",
-        isUser: false,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-      return;
-    }
-
-    // Parse payment intent with AI
-    await parseIntent(text, address);
-  };
-
-  // Handle AI parsing results
   React.useEffect(() => {
-    if (data) {
-      setParsedIntent(data);
-
-      // Add AI response message
-      const aiMessage: Message = {
-        id: Date.now().toString(),
-        text: `✅ I understood your request: ${data.intent.action.replace(
-          "_",
-          " ",
-        )}`,
-        isUser: false,
-        timestamp: `Today, ${getTimestamp()}`,
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-
-      // Handle check_balance action
-      if (data.intent.action === "check_balance") {
-        setShowBalance(true);
-      }
-    }
-
-    if (error) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        text: `❌ ${error}`,
-        isUser: false,
-        timestamp: `Today, ${getTimestamp()}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    }
-  }, [data, error]);
-
-  const handleBuyAirtime = () => {
-    const message = "I want to buy airtime";
-    handleSendMessage(message);
-  };
-
-  const handleBuyData = () => {
-    const message = "I want to buy 5GB MTN data";
-    handleSendMessage(message);
-
-    // Show purchase confirmation after a delay
-    setTimeout(() => {
-      setPendingPurchase({
-        service: {
-          name: "5GB Monthly Plan",
-          icon: "📊",
-          provider: "Data Bundle",
-        },
-        recipient: "0803 *** 8921",
-        amount: "1,500",
-        currency: "₦",
-      });
-    }, 2000);
-  };
-
-  const handlePayBills = () => {
-    handleSendMessage("I want to pay bills");
-  };
-
-  const handleHistory = () => {
-    setActiveTab("history");
-  };
-
-  const handleConfirmPurchase = () => {
-    // Handle purchase confirmation
-    setPendingPurchase(null);
-    const confirmMessage: Message = {
-      id: Date.now().toString(),
-      text: "✅ Purchase confirmed! Your data bundle has been activated.",
-      isUser: false,
-      timestamp: `Today, ${getTimestamp()}`,
-    };
-    setMessages((prev) => [...prev, confirmMessage]);
-  };
-
-  const handleCancelPurchase = () => {
-    setPendingPurchase(null);
-  };
-
-  const handlePaymentSuccess = (txHash: string) => {
-    setParsedIntent(null);
-    const successMessage: Message = {
-      id: Date.now().toString(),
-      text: `✅ Payment sent successfully! Transaction: ${txHash.slice(
-        0,
-        10,
-      )}...`,
-      isUser: false,
-      timestamp: `Today, ${getTimestamp()}`,
-    };
-    setMessages((prev) => [...prev, successMessage]);
-  };
-
-  const handleCancelPayment = () => {
-    setParsedIntent(null);
-    const cancelMessage: Message = {
-      id: Date.now().toString(),
-      text: "Payment cancelled.",
-      isUser: false,
-      timestamp: `Today, ${getTimestamp()}`,
-    };
-    setMessages((prev) => [...prev, cancelMessage]);
-  };
+    if (isMiniPay) router.replace("/app");
+  }, [isMiniPay, router]);
 
   return (
-    <div className="flex flex-col h-screen max-w-md mx-auto bg-gray-50">
-      {/* Header */}
-      <ChatHeader
-        country={country}
-        token={token}
-        onCountryChange={setCountry}
-        onTokenChange={setToken}
-      />
-
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message.text}
-            isUser={message.isUser}
-            timestamp={message.timestamp}
-          />
-        ))}
-
-        {/* Quick Actions */}
-        {messages.length === 1 && (
-          <div className="space-y-3">
-            <QuickActions
-              onBuyAirtime={handleBuyAirtime}
-              onBuyData={handleBuyData}
-            />
-            <ServiceButtons
-              onPayBills={handlePayBills}
-              onHistory={handleHistory}
-            />
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Image src="/logo1.png" alt="RonPay" width={32} height={32} />
+            <span className="font-bold text-xl">RonPay</span>
           </div>
-        )}
+          <div className="flex items-center gap-6">
+            <a
+              href="#buy-airtime"
+              className="text-sm text-gray-600 hover:text-gray-900 transition-colors hidden sm:block"
+            >
+              Buy Airtime
+            </a>
+            <Link
+              href="/app"
+              className="text-sm text-gray-600 hover:text-gray-900 transition-colors hidden sm:block"
+            >
+              MiniPay App
+            </Link>
+            <ConnectButton />
+          </div>
+        </div>
+      </nav>
 
-        {/* Purchase Confirmation */}
-        {pendingPurchase && (
-          <PurchaseCard
-            service={pendingPurchase.service}
-            recipient={pendingPurchase.recipient}
-            amount={pendingPurchase.amount}
-            currency={pendingPurchase.currency}
-            onConfirm={handleConfirmPurchase}
-            onCancel={handleCancelPurchase}
-          />
-        )}
+      {/* Hero */}
+      <section className="bg-gradient-to-b from-yellow-50 to-white py-20 px-6 text-center">
+        <div className="max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 bg-yellow-100 border border-yellow-200 rounded-full px-4 py-1.5 text-sm text-yellow-700 mb-6">
+            ⚡ Powered by Celo · Instant delivery
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-4">
+            Buy airtime with <span className="text-yellow-500">crypto</span>
+          </h1>
+          <p className="text-lg text-gray-500 mb-8">
+            Top up any Nigerian number instantly. Pay with USDm stablecoins on
+            Celo — no bank needed.
+          </p>
+          <a
+            href="#buy-airtime"
+            className="inline-block px-8 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold rounded-xl transition-colors"
+          >
+            Buy Airtime Now
+          </a>
+        </div>
+      </section>
 
-        {/* AI Payment Intent Display */}
-        {parsedIntent && parsedIntent.intent.action !== "check_balance" && (
-          <PaymentIntentDisplay intent={parsedIntent.intent} />
-        )}
+      {/* Airtime Purchase Form */}
+      <section id="buy-airtime" className="py-16 px-6 bg-gray-50 flex-1">
+        <div className="max-w-lg mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2">Purchase Airtime</h2>
+            <p className="text-gray-500 text-sm">
+              {isConnected
+                ? "Fill in the details below to top up any Nigerian number."
+                : "Connect your wallet to get started."}
+            </p>
+          </div>
+          <AirtimeBuySection />
+        </div>
+      </section>
 
-        {/* Payment Confirmation for send_payment */}
-        {parsedIntent &&
-          parsedIntent.intent.action === "send_payment" &&
-          address && (
-            <PaymentConfirmation
-              parsedCommand={parsedIntent.parsedCommand}
-              transaction={parsedIntent.transaction}
-              senderAddress={address}
-              onSuccess={handlePaymentSuccess}
-              onCancel={handleCancelPayment}
-            />
-          )}
+      {/* How it works */}
+      <section className="py-16 px-6 bg-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-10">How it works</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            {[
+              {
+                step: "1",
+                title: "Connect wallet",
+                desc: "Use MetaMask, Valora, or any Celo-compatible wallet.",
+              },
+              {
+                step: "2",
+                title: "Enter details",
+                desc: "Pick a network, enter the phone number and NGN amount.",
+              },
+              {
+                step: "3",
+                title: "Confirm & done",
+                desc: "Sign the transaction. Airtime arrives in seconds.",
+              },
+            ].map((s) => (
+              <div key={s.step} className="flex flex-col items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-400 text-gray-900 font-bold flex items-center justify-center">
+                  {s.step}
+                </div>
+                <h3 className="font-semibold">{s.title}</h3>
+                <p className="text-gray-500 text-sm">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-        {/* Airtime Confirmation for buy_airtime */}
-        {parsedIntent &&
-          parsedIntent.intent.action === "buy_airtime" &&
-          address && (
-            <AirtimeConfirmation
-              intentResponse={parsedIntent}
-              senderAddress={address}
-              onSuccess={handlePaymentSuccess}
-              onCancel={handleCancelPayment}
-            />
-          )}
-
-        {/* Balance Display for check_balance */}
-        {showBalance && address && <BalanceDisplay address={address} />}
-      </div>
-
-      {/* Chat Input */}
-      <ChatInput onSend={handleSendMessage} />
-
-      {/* Bottom Navigation */}
-      <div className="hidden">
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
+      {/* Footer */}
+      <footer className="border-t border-gray-100 py-6 text-center text-sm text-gray-400">
+        <p>
+          Built for the Celo Ecosystem ·{" "}
+          <Link href="/app" className="underline hover:text-gray-600">
+            Open MiniPay App
+          </Link>
+        </p>
+      </footer>
     </div>
   );
 }
