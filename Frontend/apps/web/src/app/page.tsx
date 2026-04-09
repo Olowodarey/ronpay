@@ -50,9 +50,9 @@ export default function LandingPage() {
   }, [visibleCount]);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+    <div className="min-h-screen bg-yellow-50 text-gray-900 flex flex-col">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
+      <nav className="sticky top-0 z-50 bg-yellow-50/90 backdrop-blur border-b border-yellow-100">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image src="/logo1.png" alt="RonPay" width={32} height={32} />
@@ -83,11 +83,11 @@ export default function LandingPage() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="bg-gradient-to-br from-yellow-50 via-white to-white pt-20 pb-16 px-6">
+      <section className="bg-gradient-to-br from-yellow-100 via-yellow-50 to-yellow-50 pt-20 pb-16 px-6">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left: copy */}
           <div>
-            <div className="inline-flex items-center gap-2 bg-yellow-100 border border-yellow-200 rounded-full px-4 py-1.5 text-sm text-yellow-700 mb-6">
+            <div className="inline-flex items-center gap-2 bg-yellow-200 border border-yellow-300 rounded-full px-4 py-1.5 text-sm text-yellow-800 mb-6">
               <Sparkles className="h-3.5 w-3.5" />
               AI-powered · Built on Celo
             </div>
@@ -111,7 +111,7 @@ export default function LandingPage() {
               ].map((p) => (
                 <span
                   key={p.label}
-                  className="flex items-center gap-1.5 bg-gray-100 text-gray-700 text-sm px-3 py-1.5 rounded-full"
+                  className="flex items-center gap-1.5 bg-yellow-100 border border-yellow-200 text-yellow-800 text-sm px-3 py-1.5 rounded-full"
                 >
                   {p.icon} {p.label}
                 </span>
@@ -127,7 +127,7 @@ export default function LandingPage() {
               </Link>
               <a
                 href="#buy-airtime"
-                className="px-7 py-3 border border-gray-200 hover:border-gray-400 text-gray-700 font-semibold rounded-xl transition-colors"
+                className="px-7 py-3 border border-yellow-300 hover:border-yellow-500 bg-yellow-100 hover:bg-yellow-200 text-gray-800 font-semibold rounded-xl transition-colors"
               >
                 Buy Airtime
               </a>
@@ -222,7 +222,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ── */}
-      <section id="features" className="py-20 px-6 bg-white">
+      <section id="features" className="py-20 px-6 bg-yellow-50/60">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-3">What the agent can do</h2>
@@ -271,14 +271,14 @@ export default function LandingPage() {
             ].map((f) => (
               <div
                 key={f.title}
-                className="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:border-yellow-200 hover:shadow-sm transition-all"
+                className="bg-yellow-50 rounded-2xl p-6 border border-yellow-100 hover:border-yellow-300 hover:shadow-sm transition-all"
               >
                 <div className="mb-3">{f.icon}</div>
                 <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed mb-3">
                   {f.desc}
                 </p>
-                <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 italic">
+                <div className="bg-yellow-100 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700 italic">
                   {f.example}
                 </div>
               </div>
@@ -288,7 +288,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Buy Airtime directly ── */}
-      <section id="buy-airtime" className="py-20 px-6 bg-gray-50">
+      <section id="buy-airtime" className="py-20 px-6 bg-yellow-100/70">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           <div>
             <h2 className="text-3xl font-bold mb-4">
