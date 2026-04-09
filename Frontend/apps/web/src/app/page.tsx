@@ -348,7 +348,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 py-6 text-center text-sm text-gray-400">
+      <footer className="border-t border-yellow-200 bg-yellow-50 py-6 text-center text-sm text-yellow-700">
         Built with ❤️ for the Celo Ecosystem ·{" "}
         <Link href="/app" className="underline hover:text-gray-600">
           MiniPay App
@@ -486,7 +486,7 @@ function AirtimeFormInline() {
 
   if (status.type === "success") {
     return (
-      <div className="bg-white rounded-2xl border border-green-200 p-8 text-center shadow-sm">
+      <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center shadow-sm">
         <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
         <h3 className="font-bold text-xl mb-1">Airtime Sent!</h3>
         <p className="text-gray-500 text-sm mb-4">
@@ -512,7 +512,7 @@ function AirtimeFormInline() {
 
   if (!isConnected) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center shadow-sm">
+      <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center shadow-sm">
         <div className="text-4xl mb-3">👛</div>
         <h3 className="font-semibold text-lg mb-2">Connect your wallet</h3>
         <p className="text-gray-500 text-sm mb-5">
@@ -526,8 +526,8 @@ function AirtimeFormInline() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-5 p-3 bg-gray-50 rounded-xl">
+    <div className="bg-yellow-50 rounded-2xl border border-yellow-200 shadow-sm p-6">
+      <div className="flex items-center justify-between mb-5 p-3 bg-yellow-100 rounded-xl">
         <span className="text-xs text-gray-500">Wallet</span>
         <span className="font-mono text-sm text-gray-800">
           {address?.slice(0, 6)}...{address?.slice(-4)}
@@ -550,7 +550,7 @@ function AirtimeFormInline() {
                 className={`py-2 rounded-xl text-xs font-medium transition-all ${
                   network === n
                     ? "bg-yellow-400 text-gray-900 shadow"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                 } disabled:opacity-50`}
               >
                 {n}
@@ -571,7 +571,7 @@ function AirtimeFormInline() {
             placeholder="08012345678"
             disabled={busy}
             required
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-yellow-200 bg-white rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
           />
         </div>
 
@@ -590,7 +590,7 @@ function AirtimeFormInline() {
                 className={`py-2 rounded-xl text-xs font-medium transition-all ${
                   amount === String(a)
                     ? "bg-yellow-400 text-gray-900 shadow"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                 } disabled:opacity-50`}
               >
                 ₦{a.toLocaleString()}
@@ -605,7 +605,7 @@ function AirtimeFormInline() {
             min="50"
             disabled={busy}
             required
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-yellow-200 bg-white rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
           />
         </div>
 
