@@ -287,47 +287,53 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Buy Airtime directly ── */}
+      {/* ── Buy Airtime ── */}
       <section id="buy-airtime" className="py-20 px-6 bg-yellow-100/70">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">
-              Prefer a simple form? We got you.
-            </h2>
-            <p className="text-gray-500 mb-6 leading-relaxed">
-              Don&apos;t want to chat? Use the direct airtime form — pick a
-              network, enter a number and amount, sign once, done.
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-10">
+            <span className="inline-flex items-center gap-2 bg-yellow-200 border border-yellow-300 rounded-full px-4 py-1.5 text-sm text-yellow-800 mb-4">
+              <Phone className="h-3.5 w-3.5" /> Instant top-up
+            </span>
+            <h2 className="text-3xl font-bold mb-3">Buy Airtime</h2>
+            <p className="text-gray-500 max-w-md mx-auto">
+              Top up any Nigerian number in seconds. Pay with USDm stablecoins —
+              no bank, no card needed.
             </p>
-            <ul className="space-y-3 text-sm text-gray-600">
-              {[
-                "MTN, Airtel, Glo, 9mobile supported",
-                "Auto-detects network from phone prefix",
-                "Pay with USDm stablecoins on Celo",
-                "Delivery in under 60 seconds",
-              ].map((item) => (
-                <li key={item} className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-yellow-400 text-gray-900 text-xs flex items-center justify-center font-bold">
-                    ✓
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-8">
-              <Link
-                href="/app"
-                className="flex items-center gap-2 text-sm font-semibold text-yellow-600 hover:text-yellow-700"
-              >
-                Or chat with the AI agent instead{" "}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
           </div>
 
-          {/* Inline airtime form */}
-          <div>
+          {/* Network badges */}
+          <div className="flex justify-center gap-3 flex-wrap mb-10">
+            {[
+              { name: "MTN", color: "bg-yellow-400", text: "text-gray-900" },
+              { name: "Airtel", color: "bg-red-500", text: "text-white" },
+              { name: "Glo", color: "bg-green-600", text: "text-white" },
+              {
+                name: "9mobile",
+                color: "bg-emerald-400",
+                text: "text-gray-900",
+              },
+            ].map((n) => (
+              <span
+                key={n.name}
+                className={`${n.color} ${n.text} text-sm font-semibold px-5 py-2 rounded-full shadow-sm`}
+              >
+                {n.name}
+              </span>
+            ))}
+          </div>
+
+          {/* Form card — centered */}
+          <div className="max-w-md mx-auto">
             <AirtimeFormInline />
           </div>
+
+          {/* Trust line */}
+          <p className="text-center text-xs text-yellow-700 mt-6 flex items-center justify-center gap-4">
+            <span>🔒 Non-custodial — you sign every transaction</span>
+            <span>⚡ Delivery under 60 seconds</span>
+            <span>🌍 Powered by Celo</span>
+          </p>
         </div>
       </section>
 
@@ -381,8 +387,19 @@ function AirtimeFormInline() {
   const [amount, setAmount] = React.useState("");
   const [network, setNetwork] = React.useState<Network>("Auto");
   const [status, setStatus] = React.useState<FormStatus>({ type: "idle" });
+  const [usdmEstimate, setUsdmEstimate] = React.useState<string | null>(null);
 
   const busy = status.type === "loading";
+
+  // Rough live estimate: 1 USDm ≈ ₦1500 (shown as a hint, not a guarantee)
+  React.useEffect(() => {
+    const amt = parseFloat(amount);
+    if (amt >= 50) {
+      setUsdmEstimate((amt / 1500).toFixed(4));
+    } else {
+      setUsdmEstimate(null);
+    }
+  }, [amount]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
