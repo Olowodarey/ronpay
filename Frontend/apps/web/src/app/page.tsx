@@ -543,9 +543,22 @@ function AirtimeFormInline() {
   }
 
   return (
-    <div className="bg-yellow-50 rounded-2xl border border-yellow-200 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-5 p-3 bg-yellow-100 rounded-xl">
-        <span className="text-xs text-gray-500">Wallet</span>
+    <div className="bg-white rounded-2xl border border-yellow-200 shadow-md p-6">
+      {/* Card header */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h3 className="font-bold text-lg text-gray-900">Top Up Airtime</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Pay with USDm on Celo</p>
+        </div>
+        <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-full px-3 py-1">
+          <span className="w-2 h-2 rounded-full bg-green-400" />
+          <span className="text-xs text-green-700 font-medium">Live</span>
+        </div>
+      </div>
+
+      {/* Wallet badge */}
+      <div className="flex items-center justify-between mb-5 p-3 bg-yellow-50 border border-yellow-100 rounded-xl">
+        <span className="text-xs text-gray-500">Connected wallet</span>
         <span className="font-mono text-sm text-gray-800">
           {address?.slice(0, 6)}...{address?.slice(-4)}
         </span>
@@ -567,7 +580,7 @@ function AirtimeFormInline() {
                 className={`py-2 rounded-xl text-xs font-medium transition-all ${
                   network === n
                     ? "bg-yellow-400 text-gray-900 shadow"
-                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                    : "bg-yellow-50 border border-yellow-200 text-yellow-800 hover:bg-yellow-100"
                 } disabled:opacity-50`}
               >
                 {n}
@@ -588,15 +601,22 @@ function AirtimeFormInline() {
             placeholder="08012345678"
             disabled={busy}
             required
-            className="w-full px-4 py-3 border border-yellow-200 bg-white rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-yellow-200 bg-yellow-50 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none placeholder-gray-400"
           />
         </div>
 
         {/* Amount */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount (₦)
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Amount (₦)
+            </label>
+            {usdmEstimate && (
+              <span className="text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
+                ≈ {usdmEstimate} USDm
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-3 gap-2 mb-2">
             {QUICK_AMOUNTS.map((a) => (
               <button
@@ -607,7 +627,7 @@ function AirtimeFormInline() {
                 className={`py-2 rounded-xl text-xs font-medium transition-all ${
                   amount === String(a)
                     ? "bg-yellow-400 text-gray-900 shadow"
-                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                    : "bg-yellow-50 border border-yellow-200 text-yellow-800 hover:bg-yellow-100"
                 } disabled:opacity-50`}
               >
                 ₦{a.toLocaleString()}
@@ -618,11 +638,11 @@ function AirtimeFormInline() {
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="Custom amount"
+            placeholder="Or enter custom amount"
             min="50"
             disabled={busy}
             required
-            className="w-full px-4 py-3 border border-yellow-200 bg-white rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+            className="w-full px-4 py-3 border border-yellow-200 bg-yellow-50 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none placeholder-gray-400"
           />
         </div>
 
@@ -631,8 +651,8 @@ function AirtimeFormInline() {
           <div
             className={`p-3 rounded-xl flex items-start gap-2 text-sm ${
               status.type === "error"
-                ? "bg-red-50 text-red-700"
-                : "bg-blue-50 text-blue-700"
+                ? "bg-red-50 text-red-700 border border-red-100"
+                : "bg-blue-50 text-blue-700 border border-blue-100"
             }`}
           >
             {status.type === "error" ? (
@@ -647,14 +667,19 @@ function AirtimeFormInline() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-200 disabled:cursor-not-allowed text-gray-900 font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-200 disabled:cursor-not-allowed text-gray-900 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
         >
           {busy ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" /> Processing...
             </>
           ) : (
-            `Buy ${amount ? `₦${Number(amount).toLocaleString()}` : "Airtime"}`
+            <>
+              <Phone className="h-5 w-5" />
+              {`Buy ${
+                amount ? `₦${Number(amount).toLocaleString()}` : "Airtime"
+              }`}
+            </>
           )}
         </button>
       </form>
